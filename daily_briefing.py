@@ -884,11 +884,31 @@ def verify_urls(html: str, timeout: float = 4.0) -> tuple[str, list[str]]:
 
     This catches Claude-hallucinated links and rotted sources without
     failing the whole briefing.
+
+    Skipped URL prefixes (always-trusted, even if HEAD fails):
+      - Our own GitHub Pages dashboard URLs — the script renders them
+        *before* the workflow's Pages deploy step, so HEAD returns 404
+        at this moment but the link will be live in ~30 sec.
+      - Apps Script webhook URLs — Google's Apps Script endpoints
+        sometimes 401 a bare HEAD even when the actual GET would work.
+      - Google Forms / Drive viewer / Docs links — these are
+        authenticated and sometimes redirect-bounce a HEAD probe.
     """
+    SKIP_PREFIXES = (
+        GITHUB_PAGES_BASE,
+        "https://script.google.com/macros/",
+        "https://docs.google.com/forms/",
+        "https://docs.google.com/document/",
+        "https://docs.google.com/spreadsheets/",
+        "https://drive.google.com/",
+        "https://mail.google.com/",
+    )
     bad = []
     def check(url: str) -> bool:
         if not url.startswith(("http://", "https://")):
             return False
+        if any(url.startswith(p) for p in SKIP_PREFIXES):
+            return True  # always-trusted
         try:
             r = requests.head(url, timeout=timeout, allow_redirects=True)
             if r.status_code >= 400:
@@ -2782,7 +2802,8 @@ def send_gmail(creds, html: str, today: dt.date):
     svc.users().messages().send(userId="me", body={"raw": raw}).execute()
 
 
-def post_slack(doc_link: str, today: dt.date, carry_count: int = 0):
+def post_slack(doc_link: str, today: dt.date, carry_count: int = 0,
+               dashboard_url: str = ""):
     token = os.environ.get("SLACK_BOT_TOKEN")
     if not token:
         print("[slack] SLACK_BOT_TOKEN not set, skipping Slack DM")
@@ -2795,13 +2816,18 @@ def post_slack(doc_link: str, today: dt.date, carry_count: int = 0):
     )
     ack = (f"\n:white_check_mark: <{_ack_url(today)}|Mark today as seen>"
            if ACK_WEBHOOK_URL else "")
+    dashboard_line = (
+        f"\n:control_knobs: <{dashboard_url}|Interactive dashboard> "
+        f"(click 👍/👎, leave comments, send items to tasks)"
+        if dashboard_url else ""
+    )
     try:
         client.chat_postMessage(
             channel=SLACK_USER_ID,
             text=(
                 f":sunrise: *Daily briefing — {today.strftime(f'%a %b {_NO_PAD_DAY}')}*\n"
                 f"In your inbox + Drive: <{doc_link}|open the Doc>"
-                f"{pending}{ack}"
+                f"{dashboard_line}{pending}{ack}"
             ),
         )
     except SlackApiError as e:
@@ -3125,7 +3151,8 @@ def main():
     send_gmail(creds, html, today)
 
     print("  posting to Slack…")
-    post_slack(doc_link, today, carry_count=len(carryover))
+    post_slack(doc_link, today, carry_count=len(carryover),
+               dashboard_url=dashboard_url)
 
     print(f"[{today}] done. {len(carryover)} items still awaiting ack.")
 
