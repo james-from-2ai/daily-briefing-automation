@@ -237,7 +237,7 @@ def google_creds() -> Credentials:
             )
             creds = flow.run_local_server(port=0)
         TOKEN_PATH.parent.mkdir(parents=True, exist_ok=True)
-        TOKEN_PATH.write_text(creds.to_json())
+        TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
     return creds
 
 
@@ -1982,7 +1982,7 @@ def upload_drive_doc(creds, html: str, today: dt.date) -> str:
 
 def send_gmail(creds, html: str, today: dt.date):
     svc = build("gmail", "v1", credentials=creds, cache_discovery=False)
-    msg = MIMEText(html, "html")
+    msg = MIMEText(html, "html", "utf-8")
     msg["to"] = RECIPIENT_EMAIL
     msg["from"] = RECIPIENT_EMAIL
     msg["subject"] = f"Daily briefing — {today.strftime(f'%a %b {_NO_PAD_DAY}')}"
@@ -2229,7 +2229,7 @@ def main():
 
     out_path = Path(__file__).parent / "output" / f"{today.isoformat()}-briefing.html"
     out_path.parent.mkdir(exist_ok=True)
-    out_path.write_text(html)
+    out_path.write_text(html, encoding="utf-8")
     print(f"    saved {out_path}")
 
     print("  persisting state…")
