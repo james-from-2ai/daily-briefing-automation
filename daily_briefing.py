@@ -2016,6 +2016,36 @@ def post_slack(doc_link: str, today: dt.date, carry_count: int = 0):
         print(f"[slack] failed: {e.response['error']}")
 
 
+def alert_slack_failure(error: Exception, traceback_str: str) -> None:
+    """Best-effort DM-on-crash alert. Used by the top-level handler when
+    main() raises so a failed cron run pings James instead of dying
+    silently. Never raises — if Slack is down or token is missing, we
+    just log and move on (the original exception is already in stderr).
+    """
+    token = os.environ.get("SLACK_BOT_TOKEN")
+    if not token:
+        return
+    try:
+        client = WebClient(token=token)
+        # Last 6 lines of the traceback — enough to identify the failure
+        # site without flooding the DM.
+        tb_tail = "\n".join(traceback_str.strip().splitlines()[-6:])
+        client.chat_postMessage(
+            channel=SLACK_USER_ID,
+            text=(
+                f":rotating_light: *Daily briefing FAILED* — "
+                f"{dt.date.today().isoformat()}\n"
+                f"`{type(error).__name__}: {str(error)[:300]}`\n"
+                f"```{tb_tail}```\n"
+                f"Check the run log: "
+                f"https://github.com/james-from-2ai/daily-briefing-automation/actions"
+            ),
+        )
+    except Exception as e:
+        # The alert path itself can't fail loudly — already crashing.
+        print(f"[slack-alert] failed: {e}", file=sys.stderr)
+
+
 # ---------- Main ----------
 
 def main():
@@ -2256,7 +2286,10 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         # Top-level safety net so cron doesn't fail silently.
-        print(f"FATAL: {e}", file=sys.stderr)
         import traceback
-        traceback.print_exc()
+        tb_str = traceback.format_exc()
+        print(f"FATAL: {e}", file=sys.stderr)
+        print(tb_str, file=sys.stderr)
+        # Slack DM so James finds out before the missing 7:30 AM briefing.
+        alert_slack_failure(e, tb_str)
         sys.exit(1)

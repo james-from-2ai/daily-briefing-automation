@@ -1,0 +1,41 @@
+name: Daily briefing
+
+# Cron is in UTC. 7:30 AM America/New_York is:
+#   EST (winter): 12:30 UTC
+#   EDT (summer): 11:30 UTC
+# GitHub's scheduled crons can fire 5–15 min late — accept "by 7:45 AM ET".
+# We run both EST and EDT slots; the early-fire is harmless because the script
+# is idempotent within a day (state-sheet dedup, ack/vote rows are append-only).
+on:
+  schedule:
+    - cron: "30 11 * * *"   # 7:30 AM EDT (summer)
+    - cron: "30 12 * * *"   # 7:30 AM EST (winter)
+  workflow_dispatch: {}     # manual "Run workflow" button in GitHub UI
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore Google OAuth credentials
+        run: |
+          mkdir -p ~/.config/2ai-briefing
+          printf '%s' "${{ secrets.GOOGLE_CLIENT_SECRET }}" > ~/.config/2ai-briefing/client_secret.json
+          printf '%s' "${{ secrets.GOOGLE_TOKEN }}"         > ~/.config/2ai-briefing/token.json
+
+      - name: Run daily briefing
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SLACK_BOT_TOKEN:   ${{ secrets.SLACK_BOT_TOKEN }}
+          PYTHONIOENCODING:  utf-8
+        run: python daily_briefing.py
