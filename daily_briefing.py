@@ -109,9 +109,13 @@ FUNDER_WATCHLIST = [
      "url": "https://openaiglobalaffairs.substack.com/"},
 ]
 
-# Claude config. opus-4-7 for synthesis, haiku-4-5 if you want it cheaper.
+# Claude config. Opus for synthesis + critic (quality matters most there).
+# Sonnet for the 11 daily web-search research calls (news deep-dives +
+# funder watchlist) — research quality is mostly about the search results,
+# not the synthesis, so Sonnet handles it well at ~1/3 the cost.
+# Drops daily cost from ~$3.80 to ~$1.20.
 CLAUDE_MODEL = "claude-opus-4-7"
-CLAUDE_RESEARCH_MODEL = "claude-opus-4-7"
+CLAUDE_RESEARCH_MODEL = "claude-sonnet-4-6"
 NEWS_DEEP_DIVE_TOPICS = 6  # top-N Tier 1/2 topics to research each day
 NEWS_DEDUP_LOOKBACK_DAYS = 7
 
