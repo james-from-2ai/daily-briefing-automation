@@ -220,6 +220,29 @@ GOOGLE_SCOPES = [
 TOKEN_PATH = Path("~/.config/2ai-briefing/token.json").expanduser()
 CLIENT_SECRET_PATH = Path("~/.config/2ai-briefing/client_secret.json").expanduser()
 
+# James's cowork-managed task system. The briefing READS from these files
+# for context (live task list, recent journal entries) and feeds it into
+# the prioritization prompt. The briefing NEVER writes to these files —
+# tasks/journal are owned by the cowork workflow.
+TASKS_JSON_PATH = Path(
+    r"C:\Users\G09jb\OneDrive\Documents\0 EVIDENCE ACTION"
+    r"\AI for Goodo\Task Prio\tasks.json"
+)
+JOURNAL_JSON_PATH = Path(
+    r"C:\Users\G09jb\OneDrive\Documents\0 EVIDENCE ACTION"
+    r"\AI for Goodo\Task Prio\journal.json"
+)
+JOURNAL_LOOKBACK_DAYS = 7
+TASKS_TOP_N = 12  # cap how many tasks we pull into the prompt context
+
+# Weather + market widgets at the top of the briefing.
+WEATHER_CITIES = [
+    ("NYC",     40.7128,  -74.0060, "🇺🇸"),
+    ("SF",      37.7749, -122.4194, "🇺🇸"),
+    ("Beijing", 39.9042,  116.4074, "🇨🇳"),
+]
+STOCK_TICKERS = [("^GSPC", "S&P 500"), ("QQQ", "QQQ")]
+
 
 # ---------- Google auth ----------
 
@@ -239,6 +262,140 @@ def google_creds() -> Credentials:
         TOKEN_PATH.parent.mkdir(parents=True, exist_ok=True)
         TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
     return creds
+
+
+# ---------- External context: cowork task system + widget feeds ----------
+#
+# These functions are READ-ONLY. The daily briefing pulls task / journal
+# context to inform prioritization, and pulls free weather + market data
+# for a morning widget strip. None of them write back.
+
+
+def pull_tasks_json() -> list[dict]:
+    """Return the cowork-managed active task list (status != done),
+    truncated to TASKS_TOP_N. Gracefully returns [] if the file is
+    missing, locked, or malformed — never blocks the briefing.
+    """
+    if not TASKS_JSON_PATH.exists():
+        return []
+    try:
+        data = json.loads(TASKS_JSON_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+        return []
+    tasks = [t for t in data.get("tasks", []) if t.get("status") != "done"]
+    # Preserve cowork's ranking (tasks.json is already ranked).
+    return tasks[:TASKS_TOP_N]
+
+
+def pull_journal_recent() -> list[dict]:
+    """Return cowork journal entries from the last JOURNAL_LOOKBACK_DAYS.
+    Each entry: timestamp, tasks_completed, tasks_added, energy_note,
+    blockers_noted, velocity, raw_quote. Used for context only.
+    """
+    if not JOURNAL_JSON_PATH.exists():
+        return []
+    try:
+        data = json.loads(JOURNAL_JSON_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+        return []
+    cutoff = dt.datetime.now() - dt.timedelta(days=JOURNAL_LOOKBACK_DAYS)
+    out = []
+    for e in data.get("entries", []):
+        ts_str = e.get("timestamp", "")
+        try:
+            ts = dt.datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+            if ts.replace(tzinfo=None) < cutoff:
+                continue
+        except (ValueError, TypeError):
+            continue
+        out.append(e)
+    return out
+
+
+def pull_weather() -> dict[str, str | None]:
+    """Open-Meteo (free, no API key). Returns {label: '18°C' | None}.
+    Failure of one city doesn't sink the others.
+    """
+    out: dict[str, str | None] = {}
+    for label, lat, lon, _flag in WEATHER_CITIES:
+        try:
+            r = requests.get(
+                "https://api.open-meteo.com/v1/forecast",
+                params={
+                    "latitude": lat, "longitude": lon,
+                    "current": "temperature_2m",
+                    "temperature_unit": "celsius",
+                    "timezone": "auto",
+                },
+                timeout=5,
+            )
+            r.raise_for_status()
+            temp = r.json().get("current", {}).get("temperature_2m")
+            out[label] = f"{round(temp)}°C" if temp is not None else None
+        except Exception:
+            out[label] = None
+    return out
+
+
+def pull_stocks() -> dict[str, dict | None]:
+    """Previous trading day's close + pct change for each ticker via
+    yfinance (scrapes Yahoo Finance). Returns
+        {ticker: {"close": float, "pct_change": float}} | None.
+    """
+    try:
+        import yfinance as yf
+    except ImportError:
+        print("[widgets] yfinance not installed; skipping stocks")
+        return {t[0]: None for t in STOCK_TICKERS}
+    out: dict[str, dict | None] = {}
+    for ticker, _label in STOCK_TICKERS:
+        try:
+            hist = yf.Ticker(ticker).history(period="5d")
+            if len(hist) < 2:
+                out[ticker] = None
+                continue
+            prev = float(hist["Close"].iloc[-2])
+            last = float(hist["Close"].iloc[-1])
+            out[ticker] = {
+                "close": round(last, 2),
+                "pct_change": round((last - prev) / prev * 100, 2),
+            }
+        except Exception:
+            out[ticker] = None
+    return out
+
+
+def render_widgets_strip(weather: dict, stocks: dict) -> str:
+    """Compact data strip rendered just under the TL;DR. Empty string if
+    every feed failed."""
+    w_parts: list[str] = []
+    for label, _lat, _lon, flag in WEATHER_CITIES:
+        v = weather.get(label)
+        if v:
+            w_parts.append(f"{flag}&nbsp;{label}&nbsp;<strong>{v}</strong>")
+    s_parts: list[str] = []
+    for ticker, display_label in STOCK_TICKERS:
+        v = stocks.get(ticker)
+        if v:
+            pct = v["pct_change"]
+            arrow = "▲" if pct >= 0 else "▼"
+            color = "#15803d" if pct >= 0 else "#dc2626"
+            s_parts.append(
+                f'<span>{display_label}&nbsp;<strong>{v["close"]:,.2f}</strong>'
+                f'&nbsp;<span style="color:{color};font-weight:600;">'
+                f'{arrow}&nbsp;{pct:+.2f}%</span></span>'
+            )
+    if not w_parts and not s_parts:
+        return ""
+    weather_html = " &nbsp;·&nbsp; ".join(w_parts)
+    stocks_html = " &nbsp;·&nbsp; ".join(s_parts)
+    sep = ' &nbsp;<span style="color:#d1d5db;">|</span>&nbsp; ' if (w_parts and s_parts) else ""
+    return (
+        '<div class="widgets" style="display:block;'
+        'padding:10px 16px;background:#ffffff;border-radius:8px;'
+        'border:1px solid #e5e7eb;margin:0 0 18px 0;font-size:13px;'
+        f'color:#374151;line-height:1.6;">{weather_html}{sep}{stocks_html}</div>'
+    )
 
 
 # ---------- Calendar ----------
@@ -776,6 +933,8 @@ def claude() -> anthropic.Anthropic:
 
 def synthesize_prioritization(calendar, drive_changes, oneonone_notes,
                               inbox_msgs: list[dict] | None = None,
+                              tasks_context: list[dict] | None = None,
+                              journal_context: list[dict] | None = None,
                               feedback_digest: str = "") -> str:
     """Ask Claude to produce the prioritization section.
 
@@ -797,6 +956,28 @@ def synthesize_prioritization(calendar, drive_changes, oneonone_notes,
          "kind": m.get("kind", ""),
          "snippet": m.get("snippet", "")[:200]}
         for m in (inbox_msgs or [])
+    ]
+    # Tasks from James's cowork task system — already ranked. Trim to
+    # the fields the model needs (skip cowork's internal metadata).
+    tasks_compact = [
+        {"id": t.get("id", ""),
+         "title": t.get("title", ""),
+         "why": (t.get("why") or "")[:600],
+         "urgency": t.get("urgency", ""),
+         "domain": t.get("domain", ""),
+         "added": t.get("added", "")}
+        for t in (tasks_context or [])
+    ]
+    # Recent journal entries — give a sense of velocity and blockers.
+    journal_compact = [
+        {"timestamp": e.get("timestamp", ""),
+         "completed": e.get("tasks_completed", []),
+         "added": e.get("tasks_added", []),
+         "energy_note": (e.get("energy_note") or "")[:200],
+         "blockers": (e.get("blockers_noted") or "")[:200],
+         "velocity": e.get("velocity", ""),
+         "raw_quote": (e.get("raw_quote") or "")[:300]}
+        for e in (journal_context or [])
     ]
 
     system = textwrap.dedent("""
@@ -820,6 +1001,12 @@ def synthesize_prioritization(calendar, drive_changes, oneonone_notes,
           (4) Does the meeting description itself contain action items
               ("Bring decision on X", "Pre-read attached") that James
               should prep for?
+          (5) Does any active task from James's task system (provided
+              below as "Active tasks") map onto today's calendar or
+              today's inbox? If a high-urgency task lines up with a
+              meeting, prioritize prep. Treat the task system's
+              ranking as a strong signal — those titles + "why"
+              fields encode reasoning we should respect, not override.
         Use these connections to make priorities feel inevitable, not
         invented. A priority that names a meeting + a doc + a deadline
         is far stronger than a vague "follow up on X."
@@ -877,6 +1064,15 @@ def synthesize_prioritization(calendar, drive_changes, oneonone_notes,
         ## Inbox signals (for cross-referencing with calendar events only —
         ## inbox triage runs separately, don't duplicate)
         {json.dumps(inbox_compact, indent=2) if inbox_compact else "(none)"}
+
+        ## Active tasks (from James's cowork task system — already ranked
+        ## by urgency. Trust the ranking and the "why" reasoning.)
+        {json.dumps(tasks_compact, indent=2) if tasks_compact else "(none)"}
+
+        ## Recent journal entries ({JOURNAL_LOOKBACK_DAYS}-day window —
+        ## use to gauge velocity, see what's been getting done vs added,
+        ## and pick up patterns from James's raw quotes / blockers)
+        {json.dumps(journal_compact, indent=2) if journal_compact else "(none)"}
         {feedback_block}
     """).strip()
 
@@ -2119,7 +2315,8 @@ def render_html(today: dt.date, prioritization: str, news: str,
                 whitespace: str = "", inbox: str = "", funder: str = "",
                 carryover_html: str = "", trends: str = "",
                 sources: str = "", publisher_landscape: str = "",
-                evidence: str = "", tldr: str = "") -> str:
+                evidence: str = "", tldr: str = "",
+                widgets_html: str = "") -> str:
     """Axios smart-brevity layout. Color-coded section cards, TL;DR strip,
     pill-style feedback widgets. The synth functions output their own
     <h2>Section name</h2> headings — we wrap each in a card div tagged
@@ -2276,6 +2473,7 @@ def render_html(today: dt.date, prioritization: str, news: str,
         <div class="eyebrow">2AI Daily Briefing · {today.strftime(f"%A %B {_NO_PAD_DAY}").upper()}</div>
         <h1 class="title">{greeting}, James.</h1>
         <div class="subtitle">Generated {dt.datetime.now().strftime(f"{_NO_PAD_HOUR}:%M %p")} · auto-piloted</div>
+        {widgets_html}
         {tldr_block}
         {ack_banner}
         {carryover_html}
@@ -2422,6 +2620,16 @@ def main():
     print("  pulling recent feedback…")
     feedback = pull_recent_feedback(creds)
 
+    print("  pulling cowork tasks + journal…")
+    cowork_tasks = pull_tasks_json()
+    cowork_journal = pull_journal_recent()
+    print(f"    {len(cowork_tasks)} active tasks · {len(cowork_journal)} journal entries")
+
+    print("  pulling widget feeds (weather + market)…")
+    weather = pull_weather()
+    stocks = pull_stocks()
+    widgets_html = render_widgets_strip(weather, stocks)
+
     # ---- extract action items from 1:1s into state ----
     action_items = []
     for name, text in oneonones.items():
@@ -2433,7 +2641,11 @@ def main():
     # ---- synthesize fresh content ----
     print("  synthesising prioritization (draft)…")
     prioritization_draft = synthesize_prioritization(
-        cal, drive, oneonones, inbox_msgs=inbox_msgs, feedback_digest=feedback
+        cal, drive, oneonones,
+        inbox_msgs=inbox_msgs,
+        tasks_context=cowork_tasks,
+        journal_context=cowork_journal,
+        feedback_digest=feedback,
     )
 
     print("  triaging inbox + drafting context-aware replies…")
@@ -2608,7 +2820,7 @@ def main():
     html = render_html(today, prioritization, news, whitespace,
                        inbox_html, funder_html, carryover_html,
                        trends, sources_html, publisher_landscape,
-                       evidence, tldr=tldr)
+                       evidence, tldr=tldr, widgets_html=widgets_html)
 
     print("  verifying cited URLs…")
     html, bad_urls = verify_urls(html)
