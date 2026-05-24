@@ -1421,12 +1421,22 @@ def extract_items_from_html(html: str, section_map: dict[str, str]) -> list[dict
     return items
 
 
-def synthesize_inbox_triage(messages: list[dict]) -> str:
-    """Two-bucket inbox triage: 'Reply / decide' + 'Likely to slip through'.
+def synthesize_inbox_triage(
+    messages: list[dict],
+    oneonone_notes: dict[str, str] | None = None,
+    calendar: list[dict] | None = None,
+) -> str:
+    """Two-bucket inbox triage with inline draft replies for the
+    medium/high-complexity items that need decision context.
 
-    Input items are tagged with kind="needs_you" (recent actionable threads)
-    or kind="stale" (older threads where you haven't replied yet). Either
-    bucket may be empty; if both are, returns the inbox-clear message.
+    'Reply / decide' items that meet the draft gate (real decision, more
+    than one-liner reply needed) get an inline draft reply that pulls in
+    relevant context from 1:1 running notes + upcoming calendar events
+    so James doesn't have to look those up before reading the draft.
+
+    Simple confirms, scheduling, FYI, and acks don't get a draft (per
+    the gate in the system prompt). 'Likely to slip through' items
+    never get drafts — they're reminders, not action-ready bullets.
     """
     if not messages:
         return "<h2>Inbox — needs you</h2>\n<p><em>Inbox is clear.</em></p>"
@@ -1435,51 +1445,127 @@ def synthesize_inbox_triage(messages: list[dict]) -> str:
     if not needs_you and not stale:
         return "<h2>Inbox — needs you</h2>\n<p><em>Inbox is clear.</em></p>"
 
+    # Build the context block (1:1 notes + upcoming calendar) so the
+    # model can ground drafts in James's broader picture. Trimmed to
+    # keep token budget sane.
+    context_lines = ["\n\n## Context for grounding draft replies"]
+    if oneonone_notes:
+        for name, text in oneonone_notes.items():
+            context_lines.append(f"\n### Recent {name} 1:1 notes\n{(text or '')[:2000]}")
+    if calendar:
+        cal_compact = [
+            {"summary": e.get("summary", ""),
+             "start": e.get("start", ""),
+             "attendees": (e.get("attendees") or [])[:5],
+             "description": (e.get("description") or "")[:400]}
+            for e in calendar[:15]
+        ]
+        context_lines.append(
+            f"\n### Upcoming calendar (next 7 days)\n{json.dumps(cal_compact, indent=2)}"
+        )
+    context_block = "\n".join(context_lines) if len(context_lines) > 1 else ""
+
+    user_payload = json.dumps(
+        {"needs_you": needs_you, "stale": stale}, indent=2
+    ) + context_block
+
     msg = claude().messages.create(
         model=CLAUDE_MODEL,
-        max_tokens=2000,
+        max_tokens=4000,
         system=textwrap.dedent("""
-            You are triaging James's inbox into two buckets. Output a tight
-            HTML fragment starting with <h2>Inbox — needs you</h2>.
+            You are triaging James's inbox into two buckets AND drafting
+            reply suggestions for the items that need them. Output a
+            tight HTML fragment starting with <h2>Inbox — needs you</h2>.
 
             Two sub-sections, in this order:
 
             <h3>Reply / decide</h3>
-              Recent threads where someone wants something from James: an
-              explicit question, a decision, an approval, a stalled-
-              without-him action. Skip pure FYI / newsletters / automated
-              mail — do NOT surface them at all. Format each item as a
-              single bullet:
-                <ul><li><a href="LINK">Subject</a> — sender → recommended
-                next action.</li></ul>
-              The next action must be concrete and short: "Reply yes/no on
-              Mariam start date", "Forward to Shereen", "Decline the
-              meeting", "30-sec ack reply", etc. No "consider replying".
+              Recent threads where someone wants something from James:
+              an explicit question, a decision, an approval, a
+              stalled-without-him action. Skip pure FYI / newsletters /
+              automated mail (do NOT surface them at all). Wrap items
+              in <ul>...</ul>. Each item:
+                <li><a href="LINK">Subject</a> — sender → recommended
+                next action.
+                [optional inline draft reply — see gate below]
+                </li>
+
+              The "recommended next action" must be concrete and short:
+              "Reply yes/no on Mariam start date", "Forward to Shereen",
+              "Decline the meeting", "30-sec ack reply". No vague
+              "consider replying".
+
+              ===== DRAFT-REPLY GATE — STRICT =====
+              Embed a draft reply ONLY when BOTH are true:
+                (1) The reply requires medium/high complexity — it
+                    needs reasoning, weighing trade-offs, or explaining
+                    a decision. Not a one-liner.
+                (2) There's a real decision in play — a substantive
+                    choice James is making, not a confirmation,
+                    scheduling, or acknowledgment.
+
+              Items that GET a draft (examples):
+                ✓ "Should we extend Mariam's start date to June 15?"
+                ✓ "Here's the draft RFP — thoughts?"
+                ✓ "We're proposing X for the retreat agenda — your call"
+                ✓ "Worth pushing back on Z, or accept as-is?"
+
+              Items that DON'T get a draft (skip the draft, still list
+              the item):
+                ✗ "Are you free Tues 3pm?" (pure scheduling)
+                ✗ "Confirming our 3pm" (pure FYI/ack)
+                ✗ "Thanks!" / "Got it" (no action)
+                ✗ Obvious yes/no with no reasoning needed
+
+              When you DO draft a reply, format it inline like this
+              (inline styles only — email clients vary on <style>):
+                <div style="margin-top:8px;padding:10px 14px;
+                background:#f0f9ff;border-left:3px solid #0e7490;
+                border-radius:4px;font-size:13px;color:#1f2937;">
+                <div style="font-size:10px;text-transform:uppercase;
+                letter-spacing:1px;color:#0e7490;font-weight:700;
+                margin-bottom:6px;">Draft reply</div>
+                <div>[the draft body, 2-4 sentences]</div>
+                </div>
+
+              The draft should:
+                - Sound like James: matter-of-fact, evidence-first,
+                  warm-but-direct, no breathless framing or over-
+                  apologizing, no corporate filler ("circling back",
+                  "wanted to flag")
+                - Be 2-4 sentences
+                - Reference relevant context from the 1:1 notes /
+                  upcoming calendar / James's pattern of work where it
+                  strengthens the reply. Example: "Per Sarah's Tuesday
+                  note we're locking retreat dates by Friday —
+                  extending Mariam to June 15 would push HR onboarding
+                  inside that window. Let's stick to June 1."
+                - End with a clear next step or decision
 
             <h3>Likely to slip through</h3>
               Older threads (3-14 days) where James was addressed but
-              hasn't replied. Same filter applies — skip newsletters,
-              automated meeting notes (Gemini, Otter, Granola), system
+              hasn't replied. Same skip filter as above for newsletters,
+              automated meeting notes (Gemini / Otter / Granola), system
               confirmations (Turn.io / Stripe / SaaS notices), calendar
               invites with no question, and anything James has clearly
-              already handled outside email. Only include items where a
-              real human is waiting on him.
+              already handled outside email.
 
+              NO draft replies in this section — these are reminders.
               These items need a brief reminder of what they were about
-              because they're not fresh. Format each item:
+              because they're not fresh. Format:
                 <ul><li><a href="LINK">Subject</a> — sender, Nd ago →
                 what they wanted in one short phrase + recommended next
                 action.</li></ul>
-              Order by age, oldest first. Use the `age_days` field for N.
+              Order by age, oldest first. Use `age_days` for N.
 
-            If a sub-section's input list is empty or every item gets
-            filtered, omit that <h3> entirely. If both buckets end up
-            empty after filtering, output:
-              <p><em>Inbox is clear.</em></p>
-            No preamble, no commentary, no padding sentences.
+            If a sub-section ends up empty after filtering, omit its
+            <h3> entirely. If BOTH end up empty: <p><em>Inbox is clear.
+            </em></p>
+
+            No preamble, no commentary, no padding sentences. Output
+            HTML fragment only, no <html>/<body> wrapper.
         """).strip(),
-        messages=[{"role": "user", "content": json.dumps(
-            {"needs_you": needs_you, "stale": stale}, indent=2)}],
+        messages=[{"role": "user", "content": user_payload}],
     )
     return msg.content[0].text
 
@@ -2350,8 +2436,10 @@ def main():
         cal, drive, oneonones, inbox_msgs=inbox_msgs, feedback_digest=feedback
     )
 
-    print("  triaging inbox…")
-    inbox_html = synthesize_inbox_triage(inbox_msgs)
+    print("  triaging inbox + drafting context-aware replies…")
+    inbox_html = synthesize_inbox_triage(
+        inbox_msgs, oneonone_notes=oneonones, calendar=cal,
+    )
 
     recent_headlines = recent_news_headlines(state, today)
     print(f"  building funder watchlist (dedup against {len(recent_headlines)} recent)…")
