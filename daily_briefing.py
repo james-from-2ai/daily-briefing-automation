@@ -110,13 +110,20 @@ FUNDER_WATCHLIST = [
      "url": "https://openaiglobalaffairs.substack.com/"},
 ]
 
-# Claude config. Opus for synthesis + critic (quality matters most there).
-# Sonnet for the 11 daily web-search research calls (news deep-dives +
-# funder watchlist) — research quality is mostly about the search results,
-# not the synthesis, so Sonnet handles it well at ~1/3 the cost.
-# Drops daily cost from ~$3.80 to ~$1.20.
+# Claude config — three tiers.
+#   CLAUDE_MODEL: daily synthesis + critic + inbox triage + news picker +
+#     preference digest. Opus for reasoning-heavy work the user feels daily.
+#   CLAUDE_RESEARCH_MODEL: daily web-search extraction (news deep-dives,
+#     funder watchlist, evidence digest, source proposer). Sonnet because
+#     these are dominated by search-result quality, not model synthesis.
+#   CLAUDE_ANALYSIS_MODEL: weekly/monthly pattern recognition (trends,
+#     white-space, peer-publisher landscape). Opus — these are the
+#     judgment-heavy features where the model's reasoning shows through.
+# Projected daily cost: ~$1.20 (3 Opus synth calls + 11 Sonnet web-search
+# calls). Weekly analytical runs add ~$0.30-0.50 each.
 CLAUDE_MODEL = "claude-opus-4-7"
 CLAUDE_RESEARCH_MODEL = "claude-sonnet-4-6"
+CLAUDE_ANALYSIS_MODEL = "claude-opus-4-7"
 NEWS_DEEP_DIVE_TOPICS = 6  # top-N Tier 1/2 topics to research each day
 NEWS_DEDUP_LOOKBACK_DAYS = 7
 
@@ -790,7 +797,7 @@ def synthesize_whitespace(program_corpus: dict[str, list[dict]],
         ) or "_no recent docs found in this area_"
 
         msg = claude().messages.create(
-            model=CLAUDE_RESEARCH_MODEL,
+            model=CLAUDE_ANALYSIS_MODEL,
             max_tokens=2500,
             tools=[{
                 "type": "web_search_20250305",
@@ -916,7 +923,7 @@ def synthesize_trends(state: list[dict], today: dt.date,
                    if prefs_digest else "")
 
     msg = claude().messages.create(
-        model=CLAUDE_RESEARCH_MODEL,
+        model=CLAUDE_ANALYSIS_MODEL,
         max_tokens=3000,
         tools=[{
             "type": "web_search_20250305",
@@ -1040,7 +1047,7 @@ def synthesize_publisher_landscape(prefs_digest: str = "") -> str:
                    if prefs_digest else "")
 
     msg = claude().messages.create(
-        model=CLAUDE_RESEARCH_MODEL,
+        model=CLAUDE_ANALYSIS_MODEL,
         max_tokens=4500,
         tools=[{
             "type": "web_search_20250305",
