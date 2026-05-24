@@ -266,7 +266,10 @@ def pull_calendar(creds, today: dt.date):
             "start": start_obj.get("dateTime") or start_obj.get("date"),
             "end": (e.get("end") or {}).get("dateTime") or (e.get("end") or {}).get("date"),
             "attendees": [a.get("email") for a in e.get("attendees") or []],
-            "description": (e.get("description") or "")[:400],
+            # Wider truncation so prep notes / agendas / pre-read context are
+            # available for cross-referencing in synthesize_prioritization.
+            "description": (e.get("description") or "")[:1200],
+            "location": e.get("location", ""),
         })
     return events
 
@@ -772,34 +775,78 @@ def claude() -> anthropic.Anthropic:
 
 
 def synthesize_prioritization(calendar, drive_changes, oneonone_notes,
+                              inbox_msgs: list[dict] | None = None,
                               feedback_digest: str = "") -> str:
-    """Ask Claude to produce the prioritization section."""
+    """Ask Claude to produce the prioritization section.
+
+    Calendar-aware: the model is asked to cross-reference upcoming meetings
+    against 1:1 action items, recent Drive activity, and inbox threads —
+    surfacing "prep X before Y meeting" connections that no single input
+    would reveal alone.
+    """
     feedback_block = (
         f"\n\n## Recent feedback from James — bias toward what landed\n{feedback_digest}\n"
         if feedback_digest else ""
     )
+    # Compact inbox for cross-referencing — we only need subject + sender +
+    # snippet to spot "this thread is about the same thing as the 10 AM
+    # meeting." Inbox triage still happens in its own section.
+    inbox_compact = [
+        {"subject": m.get("subject", ""),
+         "from": m.get("from", ""),
+         "kind": m.get("kind", ""),
+         "snippet": m.get("snippet", "")[:200]}
+        for m in (inbox_msgs or [])
+    ]
+
     system = textwrap.dedent("""
         You are James Bedford's chief of staff at 2AI (AI for global development).
         James reports up to Katie and works closely with Sarah.
 
-        From the inputs below, produce a *tight* daily prioritization brief.
-        Output sections, in this order, in HTML fragments (no <html>/<body> wrapper):
+        Your job: produce a *tight* daily prioritization brief by cross-
+        referencing inputs, not just summarizing each one in isolation.
+
+        CRITICAL — calendar-aware reasoning. Before drafting, scan each
+        of today's calendar events and ask:
+          (1) Does any 1:1 note action item map to prep for this meeting?
+              (e.g., "10 AM Board prep" + Sarah note "draft Q3 spend slide"
+               → "Draft Q3 spend slide before 10 AM Board prep" is a
+               priority, not just a calendar cue.)
+          (2) Does any recent Drive doc match this meeting's agenda?
+              (e.g., shared doc edited overnight + meeting today on the
+               same topic → "Re-read X before Y" prep cue.)
+          (3) Does any inbox thread reference the same project, person,
+              or decision as this meeting? Flag the connection.
+          (4) Does the meeting description itself contain action items
+              ("Bring decision on X", "Pre-read attached") that James
+              should prep for?
+        Use these connections to make priorities feel inevitable, not
+        invented. A priority that names a meeting + a doc + a deadline
+        is far stronger than a vague "follow up on X."
+
+        Output sections, in this order, in HTML fragments (no <html>/<body>
+        wrapper):
 
         <h2>Top priorities today</h2>
-          Numbered list of 3-5 items. Each is one line: the priority, then in
-          italics one phrase on why it's the priority today.
+          Numbered list of 3-5 items. Each is one line: the priority, then
+          in italics one phrase on why it's the priority today — citing
+          the specific cross-reference where possible (e.g., "...before
+          10 AM Sarah 1:1 — she flagged this Tuesday").
 
         <h2>Likely to slip — flag now</h2>
           Bullet list. For each: project, what evidence suggests slippage
-          (commit dates from 1:1 notes, missing prerequisites, calendar conflicts),
-          and the single action that would de-risk it.
+          (commit dates from 1:1 notes, missing prerequisites, calendar
+          conflicts, unanswered inbox threads), and the single action that
+          would de-risk it.
 
         <h2>Decisions needed from James</h2>
-          Bullet list of decisions surfaced in 1:1 notes or calendar prep that
-          are blocking others.
+          Bullet list of decisions surfaced in 1:1 notes, meeting prep
+          notes, or inbox that are blocking others.
 
         <h2>Calendar prep cues</h2>
-          For today's meetings, one line each: meeting → what to walk in with.
+          For today's meetings only, one line each: meeting → what to
+          walk in with. Reference specific docs, action items, or threads
+          where applicable. Skip social events / blocked focus time.
 
         Be specific. Quote action items verbatim where useful. No filler, no
         "I notice that...", no preamble. If a section has nothing to say, write
@@ -810,7 +857,7 @@ def synthesize_prioritization(calendar, drive_changes, oneonone_notes,
     """).strip()
 
     user = textwrap.dedent(f"""
-        ## Calendar (next {CALENDAR_LOOKAHEAD_DAYS} days)
+        ## Calendar (next {CALENDAR_LOOKAHEAD_DAYS} days, including descriptions/agendas)
         {json.dumps(calendar, indent=2, default=str)}
 
         ## Drive activity (last {DRIVE_RECENT_LOOKBACK_HOURS}h)
@@ -826,6 +873,10 @@ def synthesize_prioritization(calendar, drive_changes, oneonone_notes,
 
         ## 1:1 running notes — Sarah (most recent entries)
         {oneonone_notes["Sarah"]}
+
+        ## Inbox signals (for cross-referencing with calendar events only —
+        ## inbox triage runs separately, don't duplicate)
+        {json.dumps(inbox_compact, indent=2) if inbox_compact else "(none)"}
         {feedback_block}
     """).strip()
 
@@ -2103,7 +2154,9 @@ def main():
 
     # ---- synthesize fresh content ----
     print("  synthesising prioritization (draft)…")
-    prioritization_draft = synthesize_prioritization(cal, drive, oneonones, feedback)
+    prioritization_draft = synthesize_prioritization(
+        cal, drive, oneonones, inbox_msgs=inbox_msgs, feedback_digest=feedback
+    )
 
     print("  triaging inbox…")
     inbox_html = synthesize_inbox_triage(inbox_msgs)
