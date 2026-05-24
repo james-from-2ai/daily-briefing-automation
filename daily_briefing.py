@@ -698,9 +698,9 @@ def synthesize_prioritization(calendar, drive_changes, oneonone_notes,
 
         ## Drive activity (last {DRIVE_RECENT_LOOKBACK_HOURS}h)
         {json.dumps(
-            [{{"name": f["name"], "modified": f["modifiedTime"],
-               "by": (f.get("lastModifyingUser") or {{}}).get("displayName"),
-               "link": f.get("webViewLink")}} for f in drive_changes],
+            [{"name": f["name"], "modified": f["modifiedTime"],
+              "by": (f.get("lastModifyingUser") or {}).get("displayName"),
+              "link": f.get("webViewLink")} for f in drive_changes],
             indent=2,
         )}
 
