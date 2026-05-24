@@ -964,6 +964,54 @@ def critique_and_revise(draft_html: str, raw_inputs_summary: str,
     return msg.content[0].text
 
 
+def synthesize_tldr(prioritization_html: str, needs_count: int,
+                    stale_count: int, today: dt.date) -> str:
+    """One-sentence Axios-style summary for the top of the briefing.
+
+    Reads the post-critic prioritization HTML and the inbox counts,
+    returns 15-30 words of plain text (the renderer adds the badge).
+    Small Claude call (~$0.02) — adds the most "morning at a glance"
+    touch to the redesigned briefing.
+    """
+    plain = re.sub(r"\s+", " ",
+                   re.sub(r"<[^>]+>", " ", prioritization_html)).strip()[:3000]
+    inbox_hint = (
+        f"\n\nInbox state: {needs_count} needs-reply thread"
+        f"{'s' if needs_count != 1 else ''}, "
+        f"{stale_count} likely-to-slip thread"
+        f"{'s' if stale_count != 1 else ''}."
+    )
+    msg = claude().messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=200,
+        system=textwrap.dedent("""
+            You are writing the TL;DR strip at the top of James's daily
+            briefing — Axios smart-brevity style. ONE sentence. 15-30 words.
+
+            Read the inputs below. Surface the 1-2 things that matter most
+            today: the must-do action, the looming decision, or the slip
+            flag with the closest deadline. Tight prose: who, what, when.
+
+            Voice:
+              - No frame ("today's briefing covers", "James needs to know").
+                Start with the action or the subject.
+              - Specific names, dates, hours. "Mariam's start date by EOD"
+                not "a pending HR decision."
+              - Semicolon-joined if two things; period only if one.
+
+            Sample voice (don't copy these — fit the actual content):
+              "Mariam start date needs yes/no by EOD; Gates RFP draft 60%
+               but blocked on Kanika's cyber section."
+              "Three slip flags on the Q3 deck; nothing else urgent today."
+
+            Output plain text only. No quotes, no markdown, no leading
+            "TL;DR:" — the renderer adds that.
+        """).strip(),
+        messages=[{"role": "user", "content": plain + inbox_hint}],
+    )
+    return msg.content[0].text.strip().strip('"').strip("'")
+
+
 def synthesize_trends(state: list[dict], today: dt.date,
                       prefs_digest: str = "") -> str:
     """Skim across the last TRENDS_LOOKBACK_DAYS of indexed items and ask
@@ -1528,11 +1576,14 @@ def _vote_url(briefing_date: dt.date, key: str, direction: str) -> str:
 
 
 THUMBS_TEMPLATE = (
-    '<div style="margin-top:6px;font-size:11px;color:#888;">'
-    'Tune the system: '
-    '<a style="text-decoration:none;color:#1a5fb4;" href="{up}">👍 more like this</a>'
-    ' &nbsp;·&nbsp; '
-    '<a style="text-decoration:none;color:#1a5fb4;" href="{down}">👎 less like this</a>'
+    '<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">'
+    'Tune tomorrow: '
+    '<a href="{up}" style="display:inline-block;background:#f3f4f6;color:#374151;'
+    'padding:3px 10px;border-radius:12px;border:1px solid #e5e7eb;margin:0 3px;'
+    'text-decoration:none;font-weight:500;">👍 more like this</a>'
+    '<a href="{down}" style="display:inline-block;background:#f3f4f6;color:#374151;'
+    'padding:3px 10px;border-radius:12px;border:1px solid #e5e7eb;margin:0 3px;'
+    'text-decoration:none;font-weight:500;">👎 less like this</a>'
     '</div>'
 )
 
@@ -1691,13 +1742,15 @@ def render_carryover(carryover: list[dict], today: dt.date) -> str:
         "whitespace":  "White-space items you haven't seen",
     }
 
-    parts = ['<div style="border:2px solid #c0392b;background:#fff5f3;'
-             'padding:12px 16px;border-radius:6px;margin-bottom:24px;">'
-             '<h2 style="margin-top:0;color:#c0392b;">'
+    parts = ['<div class="carryover" style="background:#fef2f2;'
+             'border:1px solid #fca5a5;border-left:4px solid #dc2626;'
+             'padding:16px 20px;border-radius:8px;margin:0 0 24px 0;">'
+             '<h2 style="margin:0 0 4px 0;color:#dc2626;font-size:18px;'
+             'font-weight:700;letter-spacing:-0.2px;">'
              f'⏰ Pending from earlier — '
              f'{len(carryover)} item{"s" if len(carryover)!=1 else ""} you haven\'t acknowledged'
              '</h2>'
-             '<p style="font-size:12px;color:#666;margin:0 0 12px 0;">'
+             '<p style="font-size:12.5px;color:#7f1d1d;margin:0 0 14px 0;">'
              'These have rolled forward from prior briefings. They stay here '
              'until you mark them done or dismiss them.</p>']
 
@@ -1707,15 +1760,20 @@ def render_carryover(carryover: list[dict], today: dt.date) -> str:
         rows = by_section.get(sect, [])
         if not rows:
             continue
-        parts.append(f'<h3 style="color:#444;">{label.get(sect, sect.title())}</h3><ul>')
+        parts.append(
+            f'<h3 style="color:#7f1d1d;font-size:13px;margin:14px 0 4px 0;'
+            f'text-transform:uppercase;letter-spacing:0.8px;'
+            f'font-weight:700;">{label.get(sect, sect.title())}</h3><ul>'
+        )
         for r in rows:
             carry = int(r.get("carry_count") or 0)
             stale = carry >= STALE_DAYS
-            badge = (f'<span style="background:{"#c0392b" if stale else "#e67e22"};'
-                     f'color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;'
-                     f'margin-right:6px;">🔁 {carry}d</span>')
+            badge = (f'<span style="background:{"#dc2626" if stale else "#ea580c"};'
+                     f'color:#fff;padding:2px 7px;border-radius:10px;font-size:10px;'
+                     f'font-weight:600;margin-right:8px;vertical-align:1px;">'
+                     f'🔁 {carry}d</span>')
             done_link = (
-                f' <a style="font-size:11px;" '
+                f' <a style="font-size:11px;color:#6b7280;margin-left:6px;" '
                 f'href="{_ack_url(today, [r["key"]])}">mark done</a>'
                 if ACK_WEBHOOK_URL else ""
             )
@@ -1732,67 +1790,175 @@ def render_html(today: dt.date, prioritization: str, news: str,
                 whitespace: str = "", inbox: str = "", funder: str = "",
                 carryover_html: str = "", trends: str = "",
                 sources: str = "", publisher_landscape: str = "",
-                evidence: str = "") -> str:
+                evidence: str = "", tldr: str = "") -> str:
+    """Axios smart-brevity layout. Color-coded section cards, TL;DR strip,
+    pill-style feedback widgets. The synth functions output their own
+    <h2>Section name</h2> headings — we wrap each in a card div tagged
+    with its slug so CSS can theme it.
+    """
     ack_link = _ack_url(today)
     ack_banner = (
-        f'<div style="background:#eef7ee;border:1px solid #5fae5f;padding:10px 14px;'
-        f'border-radius:6px;margin:12px 0;font-size:13px;">'
-        f'<strong>👁 Mark today as seen:</strong> '
+        f'<div class="ack-banner">'
+        f'<strong>👁 Mark today as seen.</strong> '
         f'<a href="{ack_link}">I\'ve read this briefing &rarr;</a>'
-        f' &nbsp;<span style="color:#888;">'
-        f'(if you don\'t, items roll forward to tomorrow until you do)</span></div>'
+        f'<span class="ack-banner-note">'
+        f'If you don\'t, items roll forward to tomorrow.</span></div>'
         if ACK_WEBHOOK_URL else ""
     )
-    def _sep(content):
-        return (f'<hr style="margin: 32px 0; border: none; '
-                f'border-top: 1px solid #ddd;">\n{content}') if content else ""
 
-    whitespace_block = _sep(whitespace)
-    inbox_block = _sep(inbox)
-    funder_block = _sep(funder)
-    trends_block = _sep(trends)
-    sources_block = _sep(sources)
-    publisher_block = _sep(publisher_landscape)
-    evidence_block = _sep(evidence)
+    tldr_block = (
+        f'<div class="tldr"><span class="tldr-label">TL;DR</span>{tldr}</div>'
+        if tldr else ""
+    )
+
+    def _section(slug, content):
+        """Wrap a section in a color-coded card. Empty content → omitted."""
+        return f'<section class="card card-{slug}">{content}</section>' if content else ""
+
     feedback_footer = (
-        f'<div style="margin-top:36px;padding:12px;background:#f5f7fb;'
-        f'border-radius:6px;font-size:12px;color:#444;">'
-        f'<strong>Was this helpful?</strong> '
+        f'<div class="feedback-footer">'
+        f'<strong>👋 Was this useful?</strong> '
         f'<a href="{FEEDBACK_FORM_URL}?usp=pp_url&entry.{FEEDBACK_FORM_DATE_FIELD}={today.isoformat()}">'
-        f'Rate today\'s briefing &rarr;</a> '
-        f'(60 seconds — your ratings train tomorrow\'s draft.)</div>'
+        f'Rate today\'s briefing &rarr;</a>'
+        f'<div class="feedback-meta">60 seconds — your ratings train '
+        f'tomorrow\'s draft. The 👍/👎 next to each item also helps.</div>'
+        f'</div>'
         if FEEDBACK_FORM_URL else ""
     )
-    return textwrap.dedent(f"""
+
+    # Greeting by time of day.
+    hour = dt.datetime.now().hour
+    if hour < 12:
+        greeting = "Morning"
+    elif hour < 17:
+        greeting = "Afternoon"
+    else:
+        greeting = "Evening"
+
+    return textwrap.dedent(f"""\
         <!doctype html>
         <html><head><meta charset="utf-8">
         <title>2AI daily briefing — {today.isoformat()}</title>
         <style>
-          body {{ font-family: -apple-system, system-ui, sans-serif;
-                  max-width: 720px; margin: 24px auto; padding: 0 18px;
-                  color: #1a1a1a; line-height: 1.5; }}
-          h1 {{ font-size: 22px; border-bottom: 2px solid #333; padding-bottom: 6px; }}
-          h2 {{ font-size: 17px; margin-top: 28px; color: #222; }}
-          h3 {{ font-size: 14px; margin-top: 18px; color: #444; }}
-          em {{ color: #666; }}
-          a  {{ color: #1a5fb4; }}
-          .meta {{ color: #888; font-size: 12px; margin-bottom: 24px; }}
-          ul {{ margin: 6px 0; }}
-        </style></head><body>
-        <h1>2AI daily briefing — {today.strftime(f"%A, %B {_NO_PAD_DAY}, %Y")}</h1>
-        <div class="meta">Generated {dt.datetime.now().strftime(f"{_NO_PAD_HOUR}:%M %p %Z")}</div>
+          /* Axios smart-brevity, color-coded section cards. */
+          body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                         "Helvetica Neue", sans-serif;
+            max-width: 760px; margin: 0 auto; padding: 32px 22px 48px;
+            color: #111827; line-height: 1.55; background: #fafaf7;
+          }}
+          .eyebrow {{
+            font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px;
+            color: #6b7280; font-weight: 700; margin-bottom: 4px;
+          }}
+          h1.title {{
+            font-size: 30px; line-height: 1.15; margin: 0 0 4px 0;
+            font-weight: 800; letter-spacing: -0.5px; color: #111827;
+          }}
+          .subtitle {{ color: #6b7280; font-size: 13px; margin-bottom: 24px; }}
+          h2 {{
+            font-size: 19px; font-weight: 700; margin: 0 0 12px 0;
+            letter-spacing: -0.2px; color: #1f2937;
+          }}
+          h3 {{
+            font-size: 15px; font-weight: 700; margin: 18px 0 6px 0;
+            color: #374151;
+          }}
+          p, li {{ font-size: 14.5px; }}
+          em {{ color: #4b5563; font-style: italic; }}
+          a {{
+            color: #0e7490; text-decoration: none;
+            border-bottom: 1px solid rgba(14,116,144,0.35);
+          }}
+          a:hover {{ border-bottom-color: #0e7490; }}
+          ul {{ margin: 8px 0; padding-left: 22px; }}
+          li {{ margin: 5px 0; }}
+          strong {{ color: #111827; }}
+
+          /* TL;DR strip — Axios's signature yellow */
+          .tldr {{
+            background: #fef3c7; border-left: 4px solid #d97706;
+            padding: 14px 18px; border-radius: 8px; margin: 0 0 22px 0;
+            font-size: 14.5px; line-height: 1.5;
+          }}
+          .tldr-label {{
+            display: inline-block; background: #d97706; color: #fff;
+            font-size: 10px; font-weight: 700; letter-spacing: 1.4px;
+            padding: 3px 9px; border-radius: 4px; margin-right: 10px;
+            vertical-align: 2px;
+          }}
+
+          /* "Mark today as seen" banner */
+          .ack-banner {{
+            background: #ecfdf5; border-left: 4px solid #10b981;
+            border-radius: 6px; padding: 11px 16px; margin: 0 0 22px 0;
+            font-size: 13px; color: #064e3b;
+          }}
+          .ack-banner-note {{ color: #6b7280; margin-left: 8px; font-size: 12px; }}
+
+          /* Section cards — color-coded left accent + heading color.
+             Each section's <h2> inside the card adopts its accent color. */
+          .card {{
+            background: #ffffff; border-radius: 10px;
+            padding: 18px 22px; margin: 18px 0;
+            border-left: 4px solid #94a3b8;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+          }}
+          .card > h2:first-child {{ margin-top: 0; }}
+          .card > h2 ~ h2 {{ margin-top: 26px; }}
+
+          .card-priorities {{ border-left-color: #1e3a8a; }}
+          .card-priorities h2 {{ color: #1e3a8a; }}
+          .card-inbox      {{ border-left-color: #475569; }}
+          .card-inbox h2   {{ color: #475569; }}
+          .card-funder     {{ border-left-color: #b45309; }}
+          .card-funder h2  {{ color: #b45309; }}
+          .card-news       {{ border-left-color: #0e7490; }}
+          .card-news h2    {{ color: #0e7490; }}
+          .card-evidence   {{ border-left-color: #15803d; }}
+          .card-evidence h2 {{ color: #15803d; }}
+          .card-whitespace {{ border-left-color: #6d28d9; }}
+          .card-whitespace h2 {{ color: #6d28d9; }}
+          .card-trends     {{ border-left-color: #6d28d9; }}
+          .card-trends h2  {{ color: #6d28d9; }}
+          .card-publisher  {{ border-left-color: #6d28d9; }}
+          .card-publisher h2 {{ color: #6d28d9; }}
+          .card-sources    {{ border-left-color: #475569; }}
+          .card-sources h2 {{ color: #475569; }}
+
+          /* "So what for 2AI:" callout — the synth prompts already emit
+             this as <strong>So what for 2AI:</strong> followed by text.
+             We can't pattern-match text in pure CSS, so we just style
+             every <strong> in section cards with a subtle accent. */
+          .card p strong:first-child {{ color: inherit; }}
+
+          /* Footer */
+          .feedback-footer {{
+            margin-top: 32px; padding: 18px 20px;
+            background: #f1f5f9; border-radius: 10px;
+            font-size: 13.5px; color: #334155;
+            border-left: 4px solid #94a3b8;
+          }}
+          .feedback-meta {{
+            color: #6b7280; font-size: 12px; margin-top: 6px;
+          }}
+        </style>
+        </head><body>
+        <div class="eyebrow">2AI Daily Briefing · {today.strftime(f"%A %B {_NO_PAD_DAY}").upper()}</div>
+        <h1 class="title">{greeting}, James.</h1>
+        <div class="subtitle">Generated {dt.datetime.now().strftime(f"{_NO_PAD_HOUR}:%M %p")} · auto-piloted</div>
+        {tldr_block}
         {ack_banner}
         {carryover_html}
-        {prioritization}
-        {inbox_block}
-        {funder_block}
-        <hr style="margin: 32px 0; border: none; border-top: 1px solid #ddd;">
-        {news}
-        {evidence_block}
-        {whitespace_block}
-        {trends_block}
-        {publisher_block}
-        {sources_block}
+        {_section("priorities", prioritization)}
+        {_section("inbox", inbox)}
+        {_section("funder", funder)}
+        {_section("news", news)}
+        {_section("evidence", evidence)}
+        {_section("whitespace", whitespace)}
+        {_section("trends", trends)}
+        {_section("publisher", publisher_landscape)}
+        {_section("sources", sources)}
         {feedback_footer}
         </body></html>
     """).strip()
@@ -1982,6 +2148,11 @@ def main():
     )
     prioritization = critique_and_revise(prioritization_draft, inputs_summary, feedback)
 
+    # ---- TL;DR strip for the top of the briefing ----
+    print("  generating TL;DR…")
+    tldr = synthesize_tldr(prioritization, _needs, _stale, today)
+    print(f"    {tldr[:120]}{'…' if len(tldr) > 120 else ''}")
+
     # ---- annotate topic sections with 👍/👎 + index everything into state ----
     print("  injecting 👍/👎 controls + indexing items…")
     news, news_items = annotate_topics_h3(news, "news", today)
@@ -2049,7 +2220,7 @@ def main():
     html = render_html(today, prioritization, news, whitespace,
                        inbox_html, funder_html, carryover_html,
                        trends, sources_html, publisher_landscape,
-                       evidence)
+                       evidence, tldr=tldr)
 
     print("  verifying cited URLs…")
     html, bad_urls = verify_urls(html)
