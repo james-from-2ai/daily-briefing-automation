@@ -21,6 +21,7 @@ import os
 import re
 import sys
 import textwrap
+import time
 import urllib.parse
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -680,7 +681,10 @@ def recent_news_headlines(state: list[dict], today: dt.date) -> list[str]:
 # ---------- Claude synthesis ----------
 
 def claude() -> anthropic.Anthropic:
-    return anthropic.Anthropic()  # uses ANTHROPIC_API_KEY
+    # max_retries=8 so the SDK rides out per-minute TPM bucket resets on
+    # 429s with exponential backoff (default of 2 isn't enough on Tier 1).
+    # Also gives headroom against transient 529 overloads.
+    return anthropic.Anthropic(max_retries=8)  # uses ANTHROPIC_API_KEY
 
 
 def synthesize_prioritization(calendar, drive_changes, oneonone_notes,
@@ -1276,7 +1280,13 @@ def synthesize_funder_watchlist(recent_headlines: list[str],
         if prefs_digest else ""
     )
     items_html = []
-    for f in FUNDER_WATCHLIST:
+    for i, f in enumerate(FUNDER_WATCHLIST):
+        # Pace web-search calls to stay under Sonnet's TPM bucket (each call
+        # pulls ~5-10K tokens of search context). 20s between iterations keeps
+        # us under Tier 1's 30K ITPM with headroom. max_retries on the client
+        # is the safety net if a single call goes long.
+        if i > 0:
+            time.sleep(20)
         msg = claude().messages.create(
             model=CLAUDE_RESEARCH_MODEL,
             max_tokens=1200,
@@ -1343,7 +1353,12 @@ def synthesize_news_briefing(topics_text: str,
 
     # Second pass: for each target, deep research with web search tool.
     items_html = []
-    for t in targets:
+    for i, t in enumerate(targets):
+        # Pace to stay under the per-minute TPM bucket — see funder loop for
+        # the same reasoning. Each deep-dive is heavier (max_uses=5 web
+        # searches) so sleep slightly longer.
+        if i > 0:
+            time.sleep(25)
         research = claude().messages.create(
             model=CLAUDE_RESEARCH_MODEL,
             max_tokens=2500,
