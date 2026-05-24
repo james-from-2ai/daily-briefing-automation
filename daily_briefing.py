@@ -1654,17 +1654,23 @@ def annotate_topics_h3(html: str, section: str,
         h3_full, heading, body = m.group(1), m.group(2).strip(), m.group(3)
         plain_body = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", body)).strip()
         key = item_key(section, f"{heading} {plain_body[:160]}")
+        if ACK_WEBHOOK_URL:
+            thumbs = THUMBS_TEMPLATE.format(
+                up=_vote_url(today, key, "up"),
+                down=_vote_url(today, key, "down"),
+            )
+            new_block = h3_full + body.rstrip() + "\n" + thumbs + "\n"
+        else:
+            new_block = m.group(0)
         items.append({
             "section": section, "key": key, "source": "synth",
             "text_html": f"<p><strong>{heading}.</strong> {plain_body[:200]}…</p>",
+            # Saved so apply_semantic_dedup can surgically remove this
+            # block from the rendered section HTML if it dupes a
+            # historical item.
+            "rendered_block": new_block,
         })
-        if not ACK_WEBHOOK_URL:
-            return m.group(0)
-        thumbs = THUMBS_TEMPLATE.format(
-            up=_vote_url(today, key, "up"),
-            down=_vote_url(today, key, "down"),
-        )
-        return h3_full + body.rstrip() + "\n" + thumbs + "\n"
+        return new_block
 
     return pattern.sub(replace, html), items
 
@@ -1682,17 +1688,20 @@ def annotate_topics_li(html: str, section: str,
         if len(plain) < 8:
             return m.group(0)
         key = item_key(section, plain)
+        if ACK_WEBHOOK_URL:
+            thumbs = THUMBS_TEMPLATE.format(
+                up=_vote_url(today, key, "up"),
+                down=_vote_url(today, key, "down"),
+            )
+            new_block = f"<li{attrs}>{body.rstrip()} {thumbs}</li>"
+        else:
+            new_block = m.group(0)
         items.append({
             "section": section, "key": key, "source": "synth",
             "text_html": f"<li>{body}</li>",
+            "rendered_block": new_block,
         })
-        if not ACK_WEBHOOK_URL:
-            return m.group(0)
-        thumbs = THUMBS_TEMPLATE.format(
-            up=_vote_url(today, key, "up"),
-            down=_vote_url(today, key, "down"),
-        )
-        return f"<li{attrs}>{body.rstrip()} {thumbs}</li>"
+        return new_block
 
     return pattern.sub(replace, html), items
 
@@ -1736,6 +1745,189 @@ def _source_action_url(source_id: str, action: str) -> str:
         return "#"
     q = {"source_id": source_id, "action": action}
     return f"{ACK_WEBHOOK_URL}?{urllib.parse.urlencode(q)}"
+
+
+# ---------- Semantic dedup ----------
+#
+# Stable hash-based dedup (item_key on normalized text) only catches items
+# that re-appear verbatim. It misses semantic dupes: "Gates funds Penda
+# $10M" and "Penda Health gets Gates grant" are the same news event with
+# different wording. Haiku does this classification cheaply (~$0.02/run).
+
+DEDUP_ELIGIBLE_SECTIONS = {"news", "funder", "whitespace", "evidence"}
+DEDUP_LOOKBACK_DAYS = 14
+DEDUP_MODEL = "claude-haiku-4-5"
+
+
+def dedup_with_haiku(today_items: list[dict],
+                     state_items: list[dict],
+                     today: dt.date) -> dict[str, dict]:
+    """Identify today's items that refer to the same underlying event as a
+    historical state item from the last DEDUP_LOOKBACK_DAYS. Returns:
+        {today_key: {"historical_key": "...", "historical_section": "..."}}
+
+    Only HIGH-confidence matches are returned. Uses Haiku because dedup
+    is classification, not synthesis — ~10x cheaper than Sonnet for a
+    task it's plenty smart for.
+    """
+    cutoff = today - dt.timedelta(days=DEDUP_LOOKBACK_DAYS)
+    historical = []
+    section_by_id: dict[str, str] = {}
+    for r in state_items:
+        if r.get("section") not in DEDUP_ELIGIBLE_SECTIONS:
+            continue
+        try:
+            seen = dt.datetime.strptime(r.get("last_seen", "")[:10], "%Y-%m-%d").date()
+            if seen < cutoff:
+                continue
+        except ValueError:
+            continue
+        plain = re.sub(r"\s+", " ",
+                       re.sub(r"<[^>]+>", " ", r.get("text_html", ""))).strip()
+        if not plain:
+            continue
+        historical.append({
+            "id": r["key"],
+            "section": r["section"],
+            "age_days": (today - seen).days,
+            "text": plain[:280],
+        })
+        section_by_id[r["key"]] = r["section"]
+
+    candidates = []
+    for it in today_items:
+        if it.get("section") not in DEDUP_ELIGIBLE_SECTIONS:
+            continue
+        plain = re.sub(r"\s+", " ",
+                       re.sub(r"<[^>]+>", " ", it.get("text_html", ""))).strip()
+        if not plain:
+            continue
+        candidates.append({
+            "id": it["key"],
+            "section": it["section"],
+            "text": plain[:280],
+        })
+
+    if not historical or not candidates:
+        return {}
+
+    msg = claude().messages.create(
+        model=DEDUP_MODEL,
+        max_tokens=1500,
+        system=textwrap.dedent("""
+            You are dedup'ing items in James's daily briefing across days.
+
+            Two items "match" if they refer to the SAME underlying:
+              - News event (a specific funder announcement, paper,
+                deployment, policy change, personnel move)
+              - Or the same observation / finding / trend
+              - Same entity + same action + same approximate date window
+                = match, even if wording is different
+
+            Match examples (different wording, SAME event):
+              ✓ "Gates funds Penda chatbot $10M" ≡ "Penda Health gets
+                Gates grant for AI-powered triage"
+              ✓ "Anthropic publishes responsible scaling policy" ≡
+                "Anthropic's new RSP frames AI safety levels"
+
+            NON-match examples (same topic, DIFFERENT events):
+              ✗ "Wellcome announces AI-for-health RFP" vs "Gates
+                announces AI-for-health RFP" — different funders
+              ✗ "Penda hires CEO" vs "Penda raises Series A" — same
+                org, different events
+              ✗ "Two papers on AI in malaria" — only match if literally
+                the same paper
+
+            Match across sections is allowed: a 'funder' item and a
+            'news' item can match if they describe the same event from
+            different angles.
+
+            Style: focus on the underlying EVENT or CLAIM, not surface
+            wording. If unsure, DON'T match — false positives erase real
+            signal.
+
+            Output JSON only, no preamble, no markdown fences:
+              {"matches": [
+                {"today_id": "...", "historical_id": "..."},
+                ...
+              ]}
+            Only output HIGH-confidence matches. If none: {"matches": []}
+        """).strip(),
+        messages=[{"role": "user", "content": json.dumps({
+            "candidates": candidates,
+            "historical": historical,
+        }, indent=2)}],
+    )
+    raw = msg.content[0].text
+    m = re.search(r'\{.*?"matches".*?\}', raw, re.S)
+    if not m:
+        return {}
+    try:
+        result = json.loads(m.group(0))
+    except json.JSONDecodeError:
+        return {}
+
+    out: dict[str, dict] = {}
+    for match in result.get("matches", []):
+        t_id = match.get("today_id")
+        h_id = match.get("historical_id")
+        if t_id and h_id and h_id in section_by_id:
+            out[t_id] = {
+                "historical_key": h_id,
+                "historical_section": section_by_id[h_id],
+            }
+    return out
+
+
+def apply_semantic_dedup(
+    today_items: list[dict],
+    dedup_map: dict[str, dict],
+    section_htmls: dict[str, str],
+    state_items: list[dict],
+) -> tuple[list[dict], dict[str, str]]:
+    """Apply Haiku's dedup matches:
+      1. Strip each duped item's rendered_block from the section HTML
+         (so today's briefing doesn't show the same event twice).
+      2. Drop the duped today_item from today_items.
+      3. Inject a synthetic item with the historical key so
+         merge_into_state bumps its carry_count and last_seen.
+    """
+    if not dedup_map:
+        return today_items, section_htmls
+
+    state_by_key = {r["key"]: r for r in state_items if r.get("key")}
+    today_by_key = {it["key"]: it for it in today_items}
+    cleaned_sections = dict(section_htmls)
+
+    # Strip duped blocks from section HTML
+    for today_key, match in dedup_map.items():
+        it = today_by_key.get(today_key)
+        if not it:
+            continue
+        block = it.get("rendered_block")
+        if not block:
+            continue
+        section = it.get("section")
+        if section in cleaned_sections and block in cleaned_sections[section]:
+            cleaned_sections[section] = cleaned_sections[section].replace(
+                block, "", 1
+            )
+
+    # Rebuild today_items without dupes; append historical-key placeholders
+    new_today_items = [it for it in today_items if it["key"] not in dedup_map]
+    for today_key, match in dedup_map.items():
+        h_key = match["historical_key"]
+        old = state_by_key.get(h_key)
+        if not old:
+            continue
+        new_today_items.append({
+            "section": old["section"],
+            "key": h_key,
+            "source": "dedup-bump",
+            "text_html": old.get("text_html", ""),
+        })
+
+    return new_today_items, cleaned_sections
 
 
 def digest_preferences(votes: list[dict], state: list[dict]) -> str:
@@ -2254,17 +2446,20 @@ def main():
             if len(plain) < 20:
                 return block
             key = item_key("evidence", plain[:200])
+            if ACK_WEBHOOK_URL:
+                thumbs = THUMBS_TEMPLATE.format(
+                    up=_vote_url(today, key, "up"),
+                    down=_vote_url(today, key, "down"),
+                )
+                new_block = block.replace("</div>", f"  {thumbs}\n</div>", 1)
+            else:
+                new_block = block
             evidence_items.append({
                 "section": "evidence", "key": key, "source": "synth",
                 "text_html": block,
+                "rendered_block": new_block,
             })
-            if not ACK_WEBHOOK_URL:
-                return block
-            thumbs = THUMBS_TEMPLATE.format(
-                up=_vote_url(today, key, "up"),
-                down=_vote_url(today, key, "down"),
-            )
-            return block.replace("</div>", f"  {thumbs}\n</div>", 1)
+            return new_block
         evidence = re.sub(
             r'<div style="border-left:3px solid #5fae5f;[^"]*"[^>]*>.*?</div>',
             _evidence_buttonize, evidence, flags=re.S,
@@ -2289,6 +2484,28 @@ def main():
         "Decide / reply":  "inbox",
         "This week":       "inbox",
     })
+
+    # ---- semantic dedup against last 14 days of state via Haiku ----
+    if state:
+        print("  semantic dedup against recent state…")
+        dedup_map = dedup_with_haiku(today_items, state, today)
+        if dedup_map:
+            section_htmls = {
+                "news": news, "funder": funder_html,
+                "whitespace": whitespace, "evidence": evidence,
+            }
+            today_items, cleaned = apply_semantic_dedup(
+                today_items, dedup_map, section_htmls, state,
+            )
+            news = cleaned["news"]
+            funder_html = cleaned["funder"]
+            whitespace = cleaned["whitespace"]
+            evidence = cleaned["evidence"]
+            print(f"    dropped {len(dedup_map)} dupe(s); bumped historical carry_count")
+        else:
+            print("    no dupes against recent state")
+    else:
+        print("  skipping semantic dedup — no prior state yet")
 
     print(f"  indexed {len(today_items)} items for state")
     state = merge_into_state(state, today_items, today)
