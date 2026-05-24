@@ -59,8 +59,9 @@ ONEONONE_DOCS = {
 # News-topics spreadsheet (X-Sector → Testing & Experimentation).
 NEWS_TOPICS_SHEET_ID = "14KtogU6W-eRD-S6yE48w-XPTGuhyqEa32kdGYAa-BYU"
 
-# Where the daily briefing Docs get filed.
-BRIEFINGS_DRIVE_FOLDER_ID = "1pF6xq5A4216W0SWTcD7UmH52SrvdLRtZ"
+# Where the daily briefing Docs get filed. Personal My Drive folder
+# "Claude Automated Briefing" — private to james@aiaccessinitiative.org.
+BRIEFINGS_DRIVE_FOLDER_ID = "1NQACtD1-uhrakMexgbuYGU_qLTDFlo7F"
 
 # Feedback loop. Google Form → Sheet captures ratings; the script reads the
 # last FEEDBACK_LOOKBACK_DAYS of rows and feeds them into the critic + the
