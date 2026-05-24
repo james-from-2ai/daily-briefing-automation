@@ -284,8 +284,25 @@ def pull_1on1_recent_entries(creds, file_id: str, n: int = 2) -> str:
 
 
 def pull_news_topics_sheet(creds) -> str:
-    """Export the news-topics sheet as a tab-separated text blob."""
-    return export_doc_text(creds, NEWS_TOPICS_SHEET_ID)
+    """Return the news-topics sheet as a tab-separated text blob.
+
+    Reads every tab via the Sheets API (Drive's files().export() does not
+    support text/plain for native Sheets — Docs only), concatenating with
+    a heading per tab so the synth prompt can see tier groupings.
+    """
+    svc = build("sheets", "v4", credentials=creds, cache_discovery=False)
+    meta = svc.spreadsheets().get(spreadsheetId=NEWS_TOPICS_SHEET_ID).execute()
+    parts = []
+    for s in meta.get("sheets", []):
+        title = s["properties"]["title"]
+        resp = svc.spreadsheets().values().get(
+            spreadsheetId=NEWS_TOPICS_SHEET_ID,
+            range=f"'{title}'!A:Z",
+        ).execute()
+        rows = resp.get("values", [])
+        body = "\n".join("\t".join(str(c) for c in r) for r in rows)
+        parts.append(f"### {title}\n{body}")
+    return "\n\n".join(parts)
 
 
 def pull_recent_feedback(creds) -> str:
