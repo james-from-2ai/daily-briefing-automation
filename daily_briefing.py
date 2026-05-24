@@ -35,6 +35,12 @@ for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
+# strftime codes for single-digit day / 12-hour without leading zeros.
+# Linux/macOS use "%-d" / "%-I"; Windows uses "%#d" / "%#I". Use these
+# everywhere instead of hardcoding either dialect.
+_NO_PAD_DAY = "%#d" if os.name == "nt" else "%-d"
+_NO_PAD_HOUR = "%#I" if os.name == "nt" else "%-I"
+
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -1668,8 +1674,8 @@ def render_html(today: dt.date, prioritization: str, news: str,
           .meta {{ color: #888; font-size: 12px; margin-bottom: 24px; }}
           ul {{ margin: 6px 0; }}
         </style></head><body>
-        <h1>2AI daily briefing — {today.strftime("%A, %B %-d, %Y")}</h1>
-        <div class="meta">Generated {dt.datetime.now().strftime("%-I:%M %p %Z")}</div>
+        <h1>2AI daily briefing — {today.strftime(f"%A, %B {_NO_PAD_DAY}, %Y")}</h1>
+        <div class="meta">Generated {dt.datetime.now().strftime(f"{_NO_PAD_HOUR}:%M %p %Z")}</div>
         {ack_banner}
         {carryover_html}
         {prioritization}
@@ -1708,7 +1714,7 @@ def send_gmail(creds, html: str, today: dt.date):
     msg = MIMEText(html, "html")
     msg["to"] = RECIPIENT_EMAIL
     msg["from"] = RECIPIENT_EMAIL
-    msg["subject"] = f"Daily briefing — {today.strftime('%a %b %-d')}"
+    msg["subject"] = f"Daily briefing — {today.strftime(f'%a %b {_NO_PAD_DAY}')}"
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
     svc.users().messages().send(userId="me", body={"raw": raw}).execute()
 
@@ -1730,7 +1736,7 @@ def post_slack(doc_link: str, today: dt.date, carry_count: int = 0):
         client.chat_postMessage(
             channel=SLACK_USER_ID,
             text=(
-                f":sunrise: *Daily briefing — {today.strftime('%a %b %-d')}*\n"
+                f":sunrise: *Daily briefing — {today.strftime(f'%a %b {_NO_PAD_DAY}')}*\n"
                 f"In your inbox + Drive: <{doc_link}|open the Doc>"
                 f"{pending}{ack}"
             ),
