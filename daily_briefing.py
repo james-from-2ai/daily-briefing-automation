@@ -27,6 +27,13 @@ from pathlib import Path
 
 import requests
 
+# Force UTF-8 on stdout/stderr so emoji-laced progress prints don't crash
+# under Windows' cp1252 console code page (cron / GitHub Actions are
+# already UTF-8 — this is a no-op there).
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
