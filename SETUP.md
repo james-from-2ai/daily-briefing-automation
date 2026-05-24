@@ -15,9 +15,9 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 Add it to your shell profile (or to `~/.config/2ai-briefing/env`) so cron picks it up too.
 
-## 2. Google OAuth (Drive + Calendar + Gmail + Docs)
+## 2. Google OAuth (Drive + Calendar + Gmail + Docs + Sheets)
 
-The script needs OAuth credentials with these four APIs enabled.
+The script needs OAuth credentials with these five APIs enabled.
 
 1. Go to <https://console.cloud.google.com>. Create a project (or pick an existing one). The project just holds your OAuth client — nothing is billed if you only call the APIs from your own account.
 2. **APIs & Services → Library**: enable each of
@@ -25,6 +25,7 @@ The script needs OAuth credentials with these four APIs enabled.
    - Google Calendar API
    - Gmail API
    - Google Docs API
+   - Google Sheets API
 3. **OAuth consent screen**:
    - User type: **External**.
    - App name: "2AI daily briefing" (or whatever).
