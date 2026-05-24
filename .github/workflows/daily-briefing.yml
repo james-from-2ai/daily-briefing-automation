@@ -44,10 +44,21 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Restore Google OAuth credentials
+        # Base64-encoded so the JSON can't be mangled by shell escaping,
+        # Notepad BOMs, smart quotes, etc. James base64s locally with
+        # PowerShell, pastes into the _B64 secrets, we decode here.
+        env:
+          GOOGLE_CLIENT_SECRET_B64: ${{ secrets.GOOGLE_CLIENT_SECRET_B64 }}
+          GOOGLE_TOKEN_B64:         ${{ secrets.GOOGLE_TOKEN_B64 }}
         run: |
           mkdir -p ~/.config/2ai-briefing
-          printf '%s' "${{ secrets.GOOGLE_CLIENT_SECRET }}" > ~/.config/2ai-briefing/client_secret.json
-          printf '%s' "${{ secrets.GOOGLE_TOKEN }}"         > ~/.config/2ai-briefing/token.json
+          echo "$GOOGLE_CLIENT_SECRET_B64" | base64 -d > ~/.config/2ai-briefing/client_secret.json
+          echo "$GOOGLE_TOKEN_B64"         | base64 -d > ~/.config/2ai-briefing/token.json
+          # Sanity check: confirm both files are valid JSON before the
+          # briefing script tries to read them. Fail fast with a clear
+          # message if decode produced garbage.
+          python -c "import json; json.load(open('$HOME/.config/2ai-briefing/client_secret.json')); print('client_secret.json: OK')"
+          python -c "import json; json.load(open('$HOME/.config/2ai-briefing/token.json'));         print('token.json: OK')"
 
       - name: Run daily briefing
         env:
