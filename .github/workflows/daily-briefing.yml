@@ -4,18 +4,34 @@ name: Daily briefing
 #   EST (winter): 12:30 UTC
 #   EDT (summer): 11:30 UTC
 # GitHub's scheduled crons can fire 5–15 min late — accept "by 7:45 AM ET".
-# We run both EST and EDT slots; the early-fire is harmless because the script
-# is idempotent within a day (state-sheet dedup, ack/vote rows are append-only).
+# Both fire to cover DST; the script is idempotent within a day (state-sheet
+# dedup, ack/vote rows are append-only) so the redundant fire is harmless.
 on:
   schedule:
     - cron: "30 11 * * *"   # 7:30 AM EDT (summer)
     - cron: "30 12 * * *"   # 7:30 AM EST (winter)
-  workflow_dispatch: {}     # manual "Run workflow" button in GitHub UI
+  workflow_dispatch: {}     # manual "Run workflow" button in the GitHub UI
+
+# Required for deploy-pages to publish + for the briefing's
+# alert_slack_failure to hit Slack on failure.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deploy at a time. If a manual run + scheduled run
+# overlap, queue them; don't abort either.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
   run:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -39,3 +55,18 @@ jobs:
           SLACK_BOT_TOKEN:   ${{ secrets.SLACK_BOT_TOKEN }}
           PYTHONIOENCODING:  utf-8
         run: python daily_briefing.py
+
+      # Publish the interactive dashboard to GitHub Pages.
+      # daily_briefing.py wrote docs/<slug>.html plus robots.txt and
+      # a blank index. Pages serves the static contents.
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

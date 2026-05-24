@@ -22,6 +22,7 @@ import re
 import sys
 import textwrap
 import time
+import uuid
 import urllib.parse
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -77,6 +78,16 @@ FEEDBACK_SHEET_ID = "1N3gv44ytZXGhsWlKtn2toXlctfVsuvpy9zYXeghwZmk"
 FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeFEcK8KeQRoW1qM7JdWv_D3VMiNVlVQd0PejZ46RQvs8jFYA/viewform"
 FEEDBACK_FORM_DATE_FIELD = "699836171"  # numeric entry ID for the "Briefing date" field
 FEEDBACK_LOOKBACK_DAYS = 21
+
+# Interactive dashboard hosted on GitHub Pages. Each run writes a
+# new UUID-named HTML file to ./docs/; the deploy workflow uploads
+# ./docs/ as the Pages artifact. Email contains the per-day URL.
+# Privacy: unguessable filename + noindex meta + robots.txt Disallow,
+# so the briefing content isn't findable by search engines or by
+# enumerating dates. Site is technically public per github.io.
+GITHUB_PAGES_BASE = "https://james-from-2ai.github.io/daily-briefing-automation"
+DASHBOARD_DIR = Path(__file__).parent / "docs"
+DASHBOARD_COMMENTS_LOOKBACK_DAYS = 14
 
 # Briefing state — the durable layer. Two sheets:
 #   STATE_SHEET_ID: every item ever surfaced (priorities, slips, decisions,
@@ -2316,7 +2327,8 @@ def render_html(today: dt.date, prioritization: str, news: str,
                 carryover_html: str = "", trends: str = "",
                 sources: str = "", publisher_landscape: str = "",
                 evidence: str = "", tldr: str = "",
-                widgets_html: str = "") -> str:
+                widgets_html: str = "",
+                dashboard_url: str = "") -> str:
     """Axios smart-brevity layout. Color-coded section cards, TL;DR strip,
     pill-style feedback widgets. The synth functions output their own
     <h2>Section name</h2> headings — we wrap each in a card div tagged
@@ -2335,6 +2347,18 @@ def render_html(today: dt.date, prioritization: str, news: str,
     tldr_block = (
         f'<div class="tldr"><span class="tldr-label">TL;DR</span>{tldr}</div>'
         if tldr else ""
+    )
+
+    dashboard_cta = (
+        f'<div style="background:#dbeafe;border-left:4px solid #2563eb;'
+        f'padding:12px 16px;border-radius:6px;margin:0 0 18px 0;font-size:13.5px;'
+        f'color:#1e3a8a;"><strong>🎛 Interactive dashboard.</strong> '
+        f'<a href="{dashboard_url}" style="color:#1e40af;font-weight:600;">'
+        f'Open in-page version →</a>'
+        f'<div style="font-size:12px;color:#475569;margin-top:4px;">'
+        f"Click 👍/👎, leave comments, and send items to your task list "
+        f"— all in one tab, no popups.</div></div>"
+        if dashboard_url else ""
     )
 
     def _section(slug, content):
@@ -2473,6 +2497,7 @@ def render_html(today: dt.date, prioritization: str, news: str,
         <div class="eyebrow">2AI Daily Briefing · {today.strftime(f"%A %B {_NO_PAD_DAY}").upper()}</div>
         <h1 class="title">{greeting}, James.</h1>
         <div class="subtitle">Generated {dt.datetime.now().strftime(f"{_NO_PAD_HOUR}:%M %p")} · auto-piloted</div>
+        {dashboard_cta}
         {widgets_html}
         {tldr_block}
         {ack_banner}
@@ -2489,6 +2514,246 @@ def render_html(today: dt.date, prioritization: str, news: str,
         {feedback_footer}
         </body></html>
     """).strip()
+
+
+# ---------- Interactive dashboard (GitHub Pages) ----------
+#
+# Same content as the email, but with webhook anchors converted to
+# JS-driven buttons that fire fetch() in background + show toasts.
+# Also adds per-item "💬 comment" toggles + a "Send to tasks" button
+# alongside each thumbs widget. Hosted on GitHub Pages; the email
+# contains a per-day URL pointing here.
+
+
+def make_interactive_dashboard(email_html: str, dashboard_url: str,
+                               webhook_url: str, today: dt.date) -> str:
+    """Convert the email HTML into an interactive dashboard variant.
+
+    Strategy: post-process the rendered email so we don't have to
+    duplicate render logic. Three transforms:
+      1. Convert <a href="webhook?...">label</a> → <button data-...>
+         label</button> so JS can intercept clicks.
+      2. After each thumbs widget (and key-bearing item), inject a
+         "💬 comment" toggle + a "📌 Send to tasks" button. Both use
+         data-attributes so the JS runtime can read item key/section.
+      3. Inject the JS runtime + a top-banner before </body>.
+
+    Toast-style success: optimistic UI. Apps Script GET hits in no-cors
+    mode so we can't see the response, but it processes the row write.
+    """
+    if not webhook_url:
+        # Without a webhook we can't do interactive actions; return
+        # email HTML unchanged.
+        return email_html
+
+    today_iso = today.isoformat()
+    html = email_html
+
+    # Add noindex + robots-block meta tags to keep search engines out.
+    html = html.replace(
+        '<meta charset="utf-8">',
+        '<meta charset="utf-8">\n'
+        '<meta name="robots" content="noindex, nofollow, noarchive">',
+        1,
+    )
+
+    # Inject a banner just below the <h1> title — explains this is
+    # the interactive dashboard.
+    banner = (
+        '<div class="dashboard-banner" style="background:#dbeafe;'
+        'border-left:4px solid #2563eb;padding:10px 14px;border-radius:6px;'
+        'margin:0 0 18px 0;font-size:13px;color:#1e3a8a;">'
+        '<strong>🎛 Interactive dashboard.</strong> '
+        'All buttons fire in-page — no popups. '
+        '<span style="color:#475569;">Closes when you do.</span></div>'
+    )
+    html = re.sub(
+        r'(<div class="subtitle">[^<]*</div>)',
+        r'\1\n' + banner,
+        html, count=1,
+    )
+
+    # We'll harvest item keys + sections as we rewrite buttons.
+    # Pattern: any anchor whose href starts with the webhook URL.
+    webhook_anchor_re = re.compile(
+        r'<a([^>]*?)href="' + re.escape(webhook_url) + r'\?([^"]*?)"([^>]*?)>(.*?)</a>',
+        re.S | re.I,
+    )
+
+    def to_button(m):
+        pre, query, post, label = m.group(1), m.group(2), m.group(3), m.group(4)
+        params = urllib.parse.parse_qs(query)
+        attrs = ['data-action="webhook"']
+        for k, v in params.items():
+            val = v[0] if isinstance(v, list) else v
+            attrs.append(f'data-{k}="{val}"')
+        # Strip styles that anchors had; the button gets its own.
+        return (
+            f'<button type="button" '
+            f'style="background:none;border:none;padding:0;'
+            f'font:inherit;color:#0e7490;cursor:pointer;'
+            f'border-bottom:1px solid rgba(14,116,144,0.35);" '
+            f'{" ".join(attrs)}>'
+            f'{label}</button>'
+        )
+
+    html = webhook_anchor_re.sub(to_button, html)
+
+    # Inject the JS runtime + comment-toggle / task-proposal widgets
+    # before </body>.
+    runtime = _dashboard_runtime_js(webhook_url, today_iso)
+    html = html.replace("</body>", runtime + "\n</body>", 1)
+
+    return html
+
+
+def _dashboard_runtime_js(webhook_url: str, today_iso: str) -> str:
+    """The <script> block injected into every dashboard page. Wires up:
+      - Button clicks → fetch() in no-cors mode + toast.
+      - Per-item 💬 / 📌 affordances injected next to each thumbs widget.
+    """
+    return (
+        '<div id="toast" style="position:fixed;bottom:24px;'
+        'left:50%;transform:translateX(-50%);background:#15803d;'
+        'color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;'
+        'font-family:-apple-system,sans-serif;box-shadow:0 4px 14px '
+        'rgba(0,0,0,0.18);opacity:0;transition:opacity 0.25s;'
+        'pointer-events:none;z-index:9999;"></div>\n'
+        '<script>\n'
+        f'const WEBHOOK = "{webhook_url}";\n'
+        f'const TODAY = "{today_iso}";\n'
+        'function toast(msg, isError) {\n'
+        '  const t = document.getElementById("toast");\n'
+        '  t.textContent = msg;\n'
+        '  t.style.background = isError ? "#dc2626" : "#15803d";\n'
+        '  t.style.opacity = "1";\n'
+        '  clearTimeout(window._toast_t);\n'
+        '  window._toast_t = setTimeout(() => t.style.opacity = "0", 1800);\n'
+        '}\n'
+        'function fireWebhook(params, label) {\n'
+        '  const q = new URLSearchParams(params).toString();\n'
+        '  fetch(WEBHOOK + "?" + q, {method: "GET", mode: "no-cors"})\n'
+        '    .catch(e => toast("Network error", true));\n'
+        '  toast(label || "✓ saved");\n'
+        '}\n'
+        '// Attach handlers to the converted webhook buttons.\n'
+        'document.querySelectorAll("[data-action=\\"webhook\\"]").forEach(btn => {\n'
+        '  btn.addEventListener("click", e => {\n'
+        '    e.preventDefault();\n'
+        '    const params = {};\n'
+        '    for (const a of btn.attributes) {\n'
+        '      if (a.name.startsWith("data-") && a.name !== "data-action") {\n'
+        '        params[a.name.slice(5)] = a.value;\n'
+        '      }\n'
+        '    }\n'
+        '    let label = "✓ saved";\n'
+        '    if (params.vote === "up") label = "👍 More like this";\n'
+        '    else if (params.vote === "down") label = "👎 Less like this";\n'
+        '    else if (params.keys) label = "✓ marked done";\n'
+        '    else if (Object.keys(params).length === 1 && params.date) label = "✓ acknowledged";\n'
+        '    fireWebhook(params, label);\n'
+        '  });\n'
+        '});\n'
+        '// Per-item add-ons: alongside every thumbs widget, inject\n'
+        '// a 💬 comment toggle + a 📌 send-to-tasks button. Each\n'
+        '// reads the key + section from the nearest button\'s data attrs.\n'
+        'document.querySelectorAll(".thumbs").forEach(thumbsEl => {\n'
+        '  const sample = thumbsEl.querySelector("[data-key]");\n'
+        '  if (!sample) return;\n'
+        '  const key = sample.dataset.key;\n'
+        '  // Try to infer section from URL params; default to "topic".\n'
+        '  // The data attributes only carry vote/key/date; section we\n'
+        '  // tag in the email render is implicit by parent card class.\n'
+        '  let section = "topic";\n'
+        '  const card = thumbsEl.closest(".card");\n'
+        '  if (card) {\n'
+        '    const match = (card.className.match(/card-(\\w+)/) || [])[1];\n'
+        '    if (match) section = match;\n'
+        '  }\n'
+        '  // Build comment + send-to-tasks affordances\n'
+        '  const wrap = document.createElement("span");\n'
+        '  wrap.style.marginLeft = "8px";\n'
+        '  wrap.innerHTML = (\n'
+        '    \'<a href="#" class="dash-comment" style="font-size:11px;\'\n'
+        '    + \'color:#6b7280;text-decoration:none;border-bottom:1px dotted #9ca3af;\'\n'
+        '    + \'margin-right:8px;">💬 comment</a>\'\n'
+        '    + \'<a href="#" class="dash-task" style="font-size:11px;\'\n'
+        '    + \'color:#6b7280;text-decoration:none;border-bottom:1px dotted #9ca3af;\'\n'
+        '    + \'">📌 send to tasks</a>\'\n'
+        '  );\n'
+        '  thumbsEl.appendChild(wrap);\n'
+        '  // Comment toggle\n'
+        '  wrap.querySelector(".dash-comment").addEventListener("click", e => {\n'
+        '    e.preventDefault();\n'
+        '    const existing = thumbsEl.parentElement.querySelector(".dash-comment-box");\n'
+        '    if (existing) { existing.remove(); return; }\n'
+        '    const box = document.createElement("div");\n'
+        '    box.className = "dash-comment-box";\n'
+        '    box.style.cssText = "margin-top:8px;padding:10px;background:#fffbeb;'
+        'border-left:3px solid #d97706;border-radius:4px;font-size:13px;";\n'
+        '    box.innerHTML = (\n'
+        '      \'<textarea rows="3" style="width:100%;box-sizing:border-box;\'\n'
+        '      + \'border:1px solid #e5e7eb;border-radius:4px;padding:6px;\'\n'
+        '      + \'font-family:inherit;font-size:13px;" \'\n'
+        '      + \'placeholder="Leave a note about this item for next time…"></textarea>\'\n'
+        '      + \'<button type="button" class="dash-comment-submit" \'\n'
+        '      + \'style="margin-top:6px;background:#d97706;color:#fff;\'\n'
+        '      + \'border:none;padding:6px 14px;border-radius:4px;font-size:12px;\'\n'
+        '      + \'cursor:pointer;">Save comment</button>\'\n'
+        '    );\n'
+        '    thumbsEl.parentElement.appendChild(box);\n'
+        '    box.querySelector("textarea").focus();\n'
+        '    box.querySelector(".dash-comment-submit").addEventListener("click", () => {\n'
+        '      const txt = box.querySelector("textarea").value.trim();\n'
+        '      if (!txt) { toast("Empty comment", true); return; }\n'
+        '      fireWebhook({comment: txt, key: key, section: section, date: TODAY},\n'
+        '                  "💬 Comment saved");\n'
+        '      box.remove();\n'
+        '    });\n'
+        '  });\n'
+        '  // Send to tasks\n'
+        '  wrap.querySelector(".dash-task").addEventListener("click", e => {\n'
+        '    e.preventDefault();\n'
+        '    // Use the item\'s nearest heading text as title.\n'
+        '    const parent = thumbsEl.parentElement;\n'
+        '    const h = parent.querySelector("h3");\n'
+        '    let title = "(untitled item)";\n'
+        '    if (h) title = h.textContent.trim();\n'
+        '    else if (parent.firstElementChild) title = parent.firstElementChild.textContent.trim().slice(0, 120);\n'
+        '    // Default urgency: high for funder/inbox, medium otherwise.\n'
+        '    const urgency = (section === "funder" || section === "inbox") ? "high" : "medium";\n'
+        '    fireWebhook({task_proposal: title, urgency: urgency,\n'
+        '                 section: section, key: key, date: TODAY},\n'
+        '                "📌 Sent to tasks queue");\n'
+        '  });\n'
+        '});\n'
+        '</script>\n'
+    )
+
+
+def save_dashboard(html: str, slug: str) -> Path:
+    """Write the dashboard HTML to ./docs/<slug>.html so the Pages
+    deploy workflow can upload it. Also writes robots.txt + a blank
+    index.html. Returns the file path.
+
+    The slug is passed in (pre-computed in main so the email can link
+    to the dashboard before the dashboard is written).
+    """
+    DASHBOARD_DIR.mkdir(parents=True, exist_ok=True)
+    path = DASHBOARD_DIR / f"{slug}.html"
+    path.write_text(html, encoding="utf-8")
+    # robots.txt — overwritten each run, content is constant.
+    (DASHBOARD_DIR / "robots.txt").write_text(
+        "User-agent: *\nDisallow: /\n", encoding="utf-8",
+    )
+    # Empty index — landing the bare URL shouldn't reveal anything.
+    (DASHBOARD_DIR / "index.html").write_text(
+        '<!doctype html><html><head>'
+        '<meta name="robots" content="noindex,nofollow,noarchive">'
+        '<title>—</title></head><body></body></html>',
+        encoding="utf-8",
+    )
+    return path
 
 
 # ---------- Deliver ----------
@@ -2815,12 +3080,17 @@ def main():
     print(f"  {len(carryover)} carryover items from prior unacked days")
     carryover_html = render_carryover(carryover, today)
 
+    # ---- pre-compute dashboard URL so the email can link to it ----
+    dashboard_slug = f"{today.isoformat()}-{uuid.uuid4().hex[:16]}"
+    dashboard_url = f"{GITHUB_PAGES_BASE}/{dashboard_slug}.html"
+
     # ---- render, verify URLs, ship ----
     print("  rendering HTML…")
     html = render_html(today, prioritization, news, whitespace,
                        inbox_html, funder_html, carryover_html,
                        trends, sources_html, publisher_landscape,
-                       evidence, tldr=tldr, widgets_html=widgets_html)
+                       evidence, tldr=tldr, widgets_html=widgets_html,
+                       dashboard_url=dashboard_url)
 
     print("  verifying cited URLs…")
     html, bad_urls = verify_urls(html)
@@ -2831,6 +3101,15 @@ def main():
     out_path.parent.mkdir(exist_ok=True)
     out_path.write_text(html, encoding="utf-8")
     print(f"    saved {out_path}")
+
+    # ---- generate interactive dashboard variant for Pages ----
+    print("  generating interactive dashboard…")
+    dashboard_html = make_interactive_dashboard(
+        html, dashboard_url, ACK_WEBHOOK_URL, today,
+    )
+    dashboard_path = save_dashboard(dashboard_html, dashboard_slug)
+    print(f"    {dashboard_url}")
+    print(f"    {dashboard_path}")
 
     print("  persisting state…")
     write_state(creds, state)

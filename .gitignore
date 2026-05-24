@@ -37,3 +37,10 @@ Thumbs.db
 # Hackathon outputs (delete this line if you want to commit your demo outputs)
 outputs/
 *.log
+
+# Generated interactive dashboard files. Deployed straight to GitHub
+# Pages from the workflow — never committed (would balloon the repo
+# with HTML for every day).
+docs/*.html
+docs/robots.txt
+!docs/.gitkeep
