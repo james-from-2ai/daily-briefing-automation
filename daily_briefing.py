@@ -73,8 +73,9 @@ BRIEFINGS_DRIVE_FOLDER_ID = "1NQACtD1-uhrakMexgbuYGU_qLTDFlo7F"
 # Feedback loop. Google Form → Sheet captures ratings; the script reads the
 # last FEEDBACK_LOOKBACK_DAYS of rows and feeds them into the critic + the
 # synth prompts so the system gets better over time. See SETUP.md §6.
-FEEDBACK_SHEET_ID = ""           # paste sheet ID after creating the form
-FEEDBACK_FORM_URL = ""           # paste viewer URL of the Google Form
+FEEDBACK_SHEET_ID = "1N3gv44ytZXGhsWlKtn2toXlctfVsuvpy9zYXeghwZmk"
+FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeFEcK8KeQRoW1qM7JdWv_D3VMiNVlVQd0PejZ46RQvs8jFYA/viewform"
+FEEDBACK_FORM_DATE_FIELD = "699836171"  # numeric entry ID for the "Briefing date" field
 FEEDBACK_LOOKBACK_DAYS = 21
 
 # Briefing state — the durable layer. Two sheets:
@@ -86,9 +87,9 @@ FEEDBACK_LOOKBACK_DAYS = 21
 #     per-item "mark done" submissions, both written by a Google Apps Script
 #     webhook that the "Mark as seen" / "Mark done" email links hit.
 # See SETUP.md §6 + §7.
-STATE_SHEET_ID = ""
-ACK_SHEET_ID = ""
-ACK_WEBHOOK_URL = ""             # Apps Script web-app URL; see SETUP.md §7
+STATE_SHEET_ID = "1VL-WSs0DTdlGMCFEBwkKae7yD7IwxP_xRAcyhwiT-fg"
+ACK_SHEET_ID = "1VL-WSs0DTdlGMCFEBwkKae7yD7IwxP_xRAcyhwiT-fg"
+ACK_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzxmy0UYGBMfvSqYGH05rOuER0hVhCFMeYfYuIAT3K558yF7drzULAvaen2i5W3coeNcg/exec"
 STALE_DAYS = 3                   # items carried forward this long get a red flag
 MAX_CARRY_ITEMS = 25             # safety cap on carryover section size
 
@@ -1653,7 +1654,7 @@ def render_html(today: dt.date, prioritization: str, news: str,
         f'<div style="margin-top:36px;padding:12px;background:#f5f7fb;'
         f'border-radius:6px;font-size:12px;color:#444;">'
         f'<strong>Was this helpful?</strong> '
-        f'<a href="{FEEDBACK_FORM_URL}?usp=pp_url&entry.briefing_date={today.isoformat()}">'
+        f'<a href="{FEEDBACK_FORM_URL}?usp=pp_url&entry.{FEEDBACK_FORM_DATE_FIELD}={today.isoformat()}">'
         f'Rate today\'s briefing &rarr;</a> '
         f'(60 seconds — your ratings train tomorrow\'s draft.)</div>'
         if FEEDBACK_FORM_URL else ""
