@@ -98,9 +98,17 @@ TIMEZONE = "America/New_York"
 CALENDAR_LOOKAHEAD_DAYS = 7
 DRIVE_RECENT_LOOKBACK_HOURS = 30
 
-# Inbox triage — Gmail messages where you need to do something in next 48h.
+# Inbox triage — two buckets:
+#   "Needs you": last INBOX_LOOKBACK_HOURS, actionable-looking threads
+#     where you owe a reply / decision / approval.
+#   "Likely to slip through": threads aged INBOX_STALE_MIN_DAYS to
+#     INBOX_STALE_MAX_DAYS where you were addressed but haven't sent any
+#     reply in the thread yet — risk of falling off your radar.
 INBOX_LOOKBACK_HOURS = 24
 INBOX_TRIAGE_MAX = 12
+INBOX_STALE_MIN_DAYS = 3
+INBOX_STALE_MAX_DAYS = 14
+INBOX_STALE_MAX = 10
 
 # Funder watchlist — these run daily regardless of news-topic picker.
 # Funder moves drive 2AI fundraising directly; worth a different SLA.
@@ -407,36 +415,98 @@ def pull_program_area_corpus(creds) -> dict[str, list[dict]]:
 # ---------- Inbox triage (Gmail) ----------
 
 def pull_inbox_signals(creds) -> list[dict]:
-    """Return recent inbox threads that look like they want a decision from you.
+    """Return inbox threads in two buckets, tagged with `kind`:
 
-    Heuristic: messages received in the last INBOX_LOOKBACK_HOURS, where (a)
-    you are in the TO line (not just CC/BCC), (b) the sender is not you,
-    (c) the subject contains a question mark, "decision", "approve",
-    "review", "asap", or "by [date]" — i.e. anything action-looking.
-    Returns up to INBOX_TRIAGE_MAX threads with subject + snippet + link.
+    - kind="needs_you": threads from the last INBOX_LOOKBACK_HOURS that
+      look actionable (you're in To, sender isn't you, subject has
+      decision-y words). Same heuristic as before.
+    - kind="stale": threads aged INBOX_STALE_MIN_DAYS to
+      INBOX_STALE_MAX_DAYS where you were addressed but haven't replied
+      in-thread yet. Detected by walking the thread and checking that
+      the most recent message is from someone else.
     """
     svc = build("gmail", "v1", credentials=creds, cache_discovery=False)
+    user_email = RECIPIENT_EMAIL.lower()
+    out: list[dict] = []
+    seen_threads: set[str] = set()
+
+    # ----- bucket 1: needs you (recent, actionable) -----
     since_q = f"newer_than:{max(1, INBOX_LOOKBACK_HOURS // 24)}d"
-    q = (f"{since_q} to:me -from:me "
-         "is:unread OR subject:(? OR decide OR decision OR approve OR review "
-         "OR ASAP OR urgent OR EOD OR deadline)")
-    resp = svc.users().messages().list(userId="me", q=q,
+    q1 = (f"{since_q} to:me -from:me "
+          "is:unread OR subject:(? OR decide OR decision OR approve OR review "
+          "OR ASAP OR urgent OR EOD OR deadline)")
+    resp = svc.users().messages().list(userId="me", q=q1,
                                        maxResults=30).execute()
-    out = []
     for m in (resp.get("messages") or [])[:INBOX_TRIAGE_MAX]:
         full = svc.users().messages().get(
             userId="me", id=m["id"], format="metadata",
             metadataHeaders=["Subject", "From", "Date", "To"]).execute()
         headers = {h["name"]: h["value"] for h in full["payload"]["headers"]}
+        thread_id = full.get("threadId")
+        seen_threads.add(thread_id)
         out.append({
+            "kind": "needs_you",
             "id": m["id"],
-            "thread_id": full.get("threadId"),
+            "thread_id": thread_id,
             "subject": headers.get("Subject", "(no subject)"),
             "from": headers.get("From", ""),
             "date": headers.get("Date", ""),
             "snippet": full.get("snippet", "")[:280],
-            "link": f"https://mail.google.com/mail/u/0/#inbox/{full.get('threadId')}",
+            "link": f"https://mail.google.com/mail/u/0/#inbox/{thread_id}",
         })
+
+    # ----- bucket 2: stale threads where you haven't replied -----
+    stale_q = (f"to:me -from:me "
+               f"older_than:{INBOX_STALE_MIN_DAYS}d "
+               f"newer_than:{INBOX_STALE_MAX_DAYS}d "
+               f"-category:promotions -category:social -category:updates "
+               f"-in:sent -in:chats")
+    resp = svc.users().messages().list(userId="me", q=stale_q,
+                                       maxResults=40).execute()
+    stale_added = 0
+    for m in (resp.get("messages") or []):
+        if stale_added >= INBOX_STALE_MAX:
+            break
+        thread_id = m.get("threadId")
+        if not thread_id or thread_id in seen_threads:
+            continue
+        seen_threads.add(thread_id)
+        # Walk the thread; if user appears in the FROM of the most recent
+        # message, they're caught up — skip.
+        try:
+            thread = svc.users().threads().get(
+                userId="me", id=thread_id, format="metadata",
+                metadataHeaders=["From", "Date", "Subject"]).execute()
+        except Exception:
+            continue
+        msgs = thread.get("messages", [])
+        if not msgs:
+            continue
+        last = msgs[-1]
+        last_headers = {h["name"]: h["value"]
+                        for h in last["payload"].get("headers", [])}
+        if user_email in last_headers.get("From", "").lower():
+            continue  # you sent the latest reply; caught up
+        first_headers = {h["name"]: h["value"]
+                         for h in msgs[0]["payload"].get("headers", [])}
+        try:
+            last_dt = dt.datetime.fromtimestamp(int(last["internalDate"]) / 1000)
+            age_days = (dt.datetime.now() - last_dt).days
+        except (KeyError, ValueError, TypeError):
+            age_days = None
+        out.append({
+            "kind": "stale",
+            "id": last["id"],
+            "thread_id": thread_id,
+            "subject": first_headers.get("Subject", "(no subject)"),
+            "from": last_headers.get("From", ""),
+            "date": last_headers.get("Date", ""),
+            "age_days": age_days,
+            "snippet": last.get("snippet", "")[:280],
+            "link": f"https://mail.google.com/mail/u/0/#inbox/{thread_id}",
+        })
+        stale_added += 1
+
     return out
 
 
@@ -1253,30 +1323,64 @@ def extract_items_from_html(html: str, section_map: dict[str, str]) -> list[dict
 
 
 def synthesize_inbox_triage(messages: list[dict]) -> str:
-    """Triaged inbox: which threads need a James decision/action in 48h."""
+    """Two-bucket inbox triage: 'Reply / decide' + 'Likely to slip through'.
+
+    Input items are tagged with kind="needs_you" (recent actionable threads)
+    or kind="stale" (older threads where you haven't replied yet). Either
+    bucket may be empty; if both are, returns the inbox-clear message.
+    """
     if not messages:
         return "<h2>Inbox — needs you</h2>\n<p><em>Inbox is clear.</em></p>"
+    needs_you = [m for m in messages if m.get("kind") == "needs_you"]
+    stale = [m for m in messages if m.get("kind") == "stale"]
+    if not needs_you and not stale:
+        return "<h2>Inbox — needs you</h2>\n<p><em>Inbox is clear.</em></p>"
+
     msg = claude().messages.create(
         model=CLAUDE_MODEL,
         max_tokens=2000,
         system=textwrap.dedent("""
-            You are triaging James's inbox. Inputs are recent threads where
-            someone may want something from him in 48h. Output a tight HTML
-            fragment starting with <h2>Inbox — needs you</h2>.
+            You are triaging James's inbox into two buckets. Output a tight
+            HTML fragment starting with <h2>Inbox — needs you</h2>.
 
-            Bucket the threads into:
-              <h3>Decide / reply today</h3> — explicit question, deadline,
-                approval needed, or stalled-without-you items.
-              <h3>This week</h3> — needs a reply but not today.
-              <h3>FYI / can ignore</h3> — newsletters, automated mail, things
-                already handled.
+            Two sub-sections, in this order:
 
-            Each item: one line — sender, subject (with link), and a single
-            recommended next action ("Reply yes/no on Mariam start date",
-            "Forward to Shereen", "Archive"). Skip the FYI bucket if empty.
-            No preamble, no padding.
+            <h3>Reply / decide</h3>
+              Recent threads where someone wants something from James: an
+              explicit question, a decision, an approval, a stalled-
+              without-him action. Skip pure FYI / newsletters / automated
+              mail — do NOT surface them at all. Format each item as a
+              single bullet:
+                <ul><li><a href="LINK">Subject</a> — sender → recommended
+                next action.</li></ul>
+              The next action must be concrete and short: "Reply yes/no on
+              Mariam start date", "Forward to Shereen", "Decline the
+              meeting", "30-sec ack reply", etc. No "consider replying".
+
+            <h3>Likely to slip through</h3>
+              Older threads (3-14 days) where James was addressed but
+              hasn't replied. Same filter applies — skip newsletters,
+              automated meeting notes (Gemini, Otter, Granola), system
+              confirmations (Turn.io / Stripe / SaaS notices), calendar
+              invites with no question, and anything James has clearly
+              already handled outside email. Only include items where a
+              real human is waiting on him.
+
+              These items need a brief reminder of what they were about
+              because they're not fresh. Format each item:
+                <ul><li><a href="LINK">Subject</a> — sender, Nd ago →
+                what they wanted in one short phrase + recommended next
+                action.</li></ul>
+              Order by age, oldest first. Use the `age_days` field for N.
+
+            If a sub-section's input list is empty or every item gets
+            filtered, omit that <h3> entirely. If both buckets end up
+            empty after filtering, output:
+              <p><em>Inbox is clear.</em></p>
+            No preamble, no commentary, no padding sentences.
         """).strip(),
-        messages=[{"role": "user", "content": json.dumps(messages, indent=2)}],
+        messages=[{"role": "user", "content": json.dumps(
+            {"needs_you": needs_you, "stale": stale}, indent=2)}],
     )
     return msg.content[0].text
 
@@ -1786,7 +1890,9 @@ def main():
 
     print("  pulling inbox signals…")
     inbox_msgs = pull_inbox_signals(creds)
-    print(f"    {len(inbox_msgs)} actionable threads")
+    _needs = sum(1 for m in inbox_msgs if m.get("kind") == "needs_you")
+    _stale = sum(1 for m in inbox_msgs if m.get("kind") == "stale")
+    print(f"    {_needs} needs-reply + {_stale} likely-to-slip")
 
     print("  pulling recent feedback…")
     feedback = pull_recent_feedback(creds)
