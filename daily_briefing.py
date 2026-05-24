@@ -121,8 +121,13 @@ INBOX_STALE_MIN_DAYS = 3
 INBOX_STALE_MAX_DAYS = 14
 INBOX_STALE_MAX = 10
 
-# Funder watchlist — these run daily regardless of news-topic picker.
-# Funder moves drive 2AI fundraising directly; worth a different SLA.
+# Funder watchlist — runs every other day. Funder moves drive 2AI
+# fundraising directly, but daily funder updates rarely change vs.
+# 2-day cadence, and a daily watchlist is the single biggest line
+# item in the briefing budget (~$1.50/day in Sonnet + web_search).
+# Halves that cost. Use `today.toordinal() % 2 == 0` so the cadence
+# is deterministic and doesn't drift across month boundaries.
+FUNDER_RUN_PARITY = 0   # 0 = even ordinal days, 1 = odd. Either works.
 FUNDER_WATCHLIST = [
     {"name": "Coefficient Giving", "query": "Coefficient Giving announcements last 7 days",
      "url": "https://coefficientgiving.org/"},
@@ -1050,6 +1055,25 @@ def synthesize_prioritization(calendar, drive_changes, oneonone_notes,
           in italics one phrase on why it's the priority today — citing
           the specific cross-reference where possible (e.g., "...before
           10 AM Sarah 1:1 — she flagged this Tuesday").
+
+        <h2>Gold-standard overreach — if you went all-in</h2>
+          For 1-3 of today's top priorities, name the *ambitious* version
+          of that priority. This is the "if you had 4 hours and a clear
+          head" version — the move that would feel like real progress vs.
+          merely "shipping the thing." Examples of the right voice:
+            - Base priority: "Send retreat pre-read by EOD."
+              Overreach: "Send retreat pre-read with a 3-slide vision deck
+              attached — gives Katie an anchor to react to in real time."
+            - Base priority: "Draft Q3 spend slide for Sarah 1:1."
+              Overreach: "Draft Q3 spend slide + a 1-pager on what we'd do
+              with +$200K in Q4 — turns the spend conversation into a
+              fundraising conversation."
+
+          Format as a bullet list. Each item: one line of base priority +
+          one line of overreach, italicized with "<em>Overreach:</em>"
+          prefix. Be specific — name the artifact, the audience, and the
+          marginal benefit. If you can't find a meaningful overreach,
+          skip the item; don't pad.
 
         <h2>Likely to slip — flag now</h2>
           Bullet list. For each: project, what evidence suggests slippage
@@ -2945,8 +2969,12 @@ def main():
     )
 
     recent_headlines = recent_news_headlines(state, today)
-    print(f"  building funder watchlist (dedup against {len(recent_headlines)} recent)…")
-    funder_html = synthesize_funder_watchlist(recent_headlines, prefs_digest)
+    if today.toordinal() % 2 == FUNDER_RUN_PARITY:
+        print(f"  building funder watchlist (dedup against {len(recent_headlines)} recent)…")
+        funder_html = synthesize_funder_watchlist(recent_headlines, prefs_digest)
+    else:
+        print("  skipping funder watchlist (runs every 2 days)")
+        funder_html = ""
 
     print("  pulling news topics sheet…")
     topics = pull_news_topics_sheet(creds)
