@@ -1,0 +1,31 @@
+# 2AI Hackathon starter dependencies
+# Install with: pip install -r requirements.txt
+
+# Claude API
+anthropic>=0.40.0
+
+# HTTP + scraping (news scanner, funder dashboard, auditor prompts)
+requests>=2.32.0
+feedparser>=6.0.11
+beautifulsoup4>=4.12.0
+
+# Quick UI (works for chatbot, dashboard, aggregator prompts)
+streamlit>=1.40.0
+
+# .env file loader (keep API keys out of code)
+python-dotenv>=1.0.1
+
+# Useful for any data wrangling (CEA, funder intelligence)
+pandas>=2.2.0
+
+# Google APIs (daily_briefing.py)
+google-auth>=2.30.0
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
+google-api-python-client>=2.130.0
+
+# Slack delivery (daily_briefing.py)
+slack_sdk>=3.27.0
+
+# Excel reading (for the news-topics sheet if it's an .xlsx export)
+openpyxl>=3.1.0
