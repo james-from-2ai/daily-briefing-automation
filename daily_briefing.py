@@ -2043,6 +2043,162 @@ def annotate_topics_li(html: str, section: str,
     return pattern.sub(replace, html), items
 
 
+def _task_proposal_url(today: dt.date, key: str, title: str,
+                       urgency: str, section: str) -> str:
+    """URL to the Apps Script task_proposal route. Embeds title + key +
+    urgency hint so a click writes a complete row to the task_proposals
+    tab — your cowork session can pick it up on its next run."""
+    if not ACK_WEBHOOK_URL:
+        return "#"
+    q = {
+        "task_proposal": title[:200],
+        "key": key, "urgency": urgency, "section": section,
+        "date": today.isoformat(),
+    }
+    return f"{ACK_WEBHOOK_URL}?{urllib.parse.urlencode(q)}"
+
+
+def _ignore_url(today: dt.date, key: str, section: str) -> str:
+    """URL fired by the '✕ not a priority' / 'not a decision' anchors.
+    Hits the existing ack-route (writes to `done_keys`) so the item
+    won't carry forward. The dashboard JS additionally fires a 👎 vote
+    on the same key so the synth biases away from re-surfacing similar
+    items. Email-based clicks only get the mark-done behavior (no JS).
+    """
+    if not ACK_WEBHOOK_URL:
+        return "#"
+    q = {
+        "keys": key, "date": today.isoformat(),
+        "kind": "ignore",      # consumed by dashboard JS; ignored by Apps Script
+        "section": section,
+    }
+    return f"{ACK_WEBHOOK_URL}?{urllib.parse.urlencode(q)}"
+
+
+def _action_widgets(buttons: list[str], today: dt.date, key: str,
+                    plain_title: str, section: str) -> str:
+    """Render the inline button strip after a list-item body. Each button
+    is an <a href="webhook?..."> — emails open them via auto-close tab;
+    the dashboard JS converts them to background fetches.
+
+    Supported button keys: 'ignore', 'task'. Comment buttons are added
+    by the dashboard JS at render time (they need an inline textarea, no
+    point rendering in email since email can't host that).
+    """
+    if not ACK_WEBHOOK_URL or not buttons:
+        return ""
+    parts: list[str] = []
+    section_label = {"priority": "priority", "decision": "decision",
+                     "inbox": "thread"}.get(section, "item")
+    btn_style = (
+        'font-size:11px;color:#6b7280;margin-left:8px;'
+        'border-bottom:1px dotted #9ca3af;text-decoration:none;'
+    )
+    if "ignore" in buttons:
+        parts.append(
+            f'<a href="{_ignore_url(today, key, section)}" '
+            f'style="{btn_style}">✕ not a {section_label}</a>'
+        )
+    if "task" in buttons:
+        urgency = "high" if section in ("priority", "inbox") else "medium"
+        parts.append(
+            f'<a href="{_task_proposal_url(today, key, plain_title, urgency, section)}" '
+            f'style="{btn_style}">📌 send to tasks</a>'
+        )
+    if not parts:
+        return ""
+    return ('<span class="action-widgets">'
+            + "".join(parts) + "</span>")
+
+
+# Section-detection prefixes for annotate_prioritization. Matched
+# case-insensitively against the h2 heading text. The trailing tuple
+# is (section_slug, [button_types]) — empty list = index but no buttons.
+_PRIO_SECTION_RULES = [
+    ("Top priorities",            ("priority", ["ignore", "task"])),
+    ("Gold-standard overreach",   ("priority", ["task"])),   # overreach: aspirational, can't really "ignore"
+    ("Likely to slip",            ("slip",     [])),         # has action embedded; skip buttons
+    ("Decisions needed",          ("decision", ["ignore", "task"])),
+    ("Calendar prep",             ("priority", [])),         # ephemeral, re-derived daily
+]
+
+
+def annotate_prioritization(html: str, today: dt.date) -> tuple[str, list[dict]]:
+    """Walk the prioritization HTML, identify each <h2> sub-section, and
+    for matched sections: (a) inject inline action buttons inside each
+    <li>, and (b) index those items into the items list with the right
+    section slug + stable key.
+
+    Replaces the old `extract_items_from_html(prioritization, ...)` call —
+    indexing now happens here so the keys match the annotated text.
+    """
+    items: list[dict] = []
+    # Split into chunks at every <h2>...</h2> boundary, preserving the
+    # h2 chunks so we can use them to determine the current section.
+    sections = re.split(r'(<h2[^>]*>.*?</h2>)', html, flags=re.S | re.I)
+    current_rule: tuple[str, list[str]] | None = None
+    out: list[str] = []
+    for chunk in sections:
+        if re.match(r'<h2[^>]*>', chunk, re.I):
+            heading = re.sub(r"<[^>]+>", "", chunk).strip()
+            current_rule = None
+            for prefix, rule in _PRIO_SECTION_RULES:
+                if heading.lower().startswith(prefix.lower()):
+                    current_rule = rule
+                    break
+            out.append(chunk)
+            continue
+        if not current_rule:
+            out.append(chunk)
+            continue
+        section, buttons = current_rule
+        # Annotate <li> items in this chunk.
+        def _replace_li(m):
+            attrs, body = m.group(1), m.group(2)
+            plain = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", body)).strip()
+            if len(plain) < 8:
+                return m.group(0)
+            key = item_key(section, plain)
+            widgets = _action_widgets(buttons, today, key, plain, section)
+            new_block = f"<li{attrs}>{body.rstrip()}{widgets}</li>"
+            items.append({
+                "section": section, "key": key, "source": "synth",
+                "text_html": f"<li>{body}</li>",
+                "rendered_block": new_block,
+            })
+            return new_block
+        chunk = re.sub(r'<li([^>]*)>(.*?)</li>', _replace_li,
+                       chunk, flags=re.S | re.I)
+        out.append(chunk)
+    return "".join(out), items
+
+
+def annotate_inbox(html: str, today: dt.date) -> tuple[str, list[dict]]:
+    """Inject '📌 send to tasks' buttons inside each <li> in any inbox
+    sub-section (reply/decide, likely-to-slip). No 'ignore' — inbox
+    items are implicitly dismissed by not replying. Indexes items with
+    section='inbox'."""
+    items: list[dict] = []
+    pattern = re.compile(r'<li([^>]*)>(.*?)</li>', re.S | re.I)
+
+    def replace(m):
+        attrs, body = m.group(1), m.group(2)
+        plain = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", body)).strip()
+        if len(plain) < 8:
+            return m.group(0)
+        key = item_key("inbox", plain)
+        widgets = _action_widgets(["task"], today, key, plain[:150], "inbox")
+        new_block = f"<li{attrs}>{body.rstrip()}{widgets}</li>"
+        items.append({
+            "section": "inbox", "key": key, "source": "synth",
+            "text_html": f"<li>{body}</li>",
+            "rendered_block": new_block,
+        })
+        return new_block
+
+    return pattern.sub(replace, html), items
+
+
 def read_votes(creds) -> list[dict]:
     """Read the `votes` tab on the ACK sheet."""
     if not ACK_SHEET_ID:
@@ -2691,20 +2847,36 @@ def _dashboard_runtime_js(webhook_url: str, today_iso: str) -> str:
         '      }\n'
         '    }\n'
         '    let label = "✓ saved";\n'
-        '    if (params.vote === "up") label = "👍 More like this";\n'
+        '    // Ignore: writes mark-done AND fires a 👎 vote so future\n'
+        '    // synth biases against re-surfacing the same item.\n'
+        '    if (params.kind === "ignore") {\n'
+        '      label = "✕ Ignored";\n'
+        '      fireWebhook({vote: "down", key: params.keys, date: params.date}, null);\n'
+        '    } else if (params.task_proposal) {\n'
+        '      label = "📌 Sent to tasks queue";\n'
+        '    } else if (params.vote === "up") label = "👍 More like this";\n'
         '    else if (params.vote === "down") label = "👎 Less like this";\n'
         '    else if (params.keys) label = "✓ marked done";\n'
         '    else if (Object.keys(params).length === 1 && params.date) label = "✓ acknowledged";\n'
         '    fireWebhook(params, label);\n'
+        '    // Visually dim the parent item if ignoring or marking done.\n'
+        '    if (params.kind === "ignore" || params.keys) {\n'
+        '      const li = btn.closest("li");\n'
+        '      if (li) { li.style.opacity = "0.4"; li.style.textDecoration = "line-through"; }\n'
+        '    }\n'
         '  });\n'
         '});\n'
-        '// Per-item add-ons: alongside every thumbs widget, inject\n'
-        '// a 💬 comment toggle + a 📌 send-to-tasks button. Each\n'
-        '// reads the key + section from the nearest button\'s data attrs.\n'
-        'document.querySelectorAll(".thumbs").forEach(thumbsEl => {\n'
+        '// Per-item add-ons: alongside every thumbs widget OR\n'
+        '// action-widgets strip, inject a 💬 comment toggle + 📌 send-\n'
+        '// to-tasks button (skipping the latter if action-widgets\n'
+        '// already has a "send to tasks" anchor). Each reads the key\n'
+        '// + section from the nearest button\'s data attrs.\n'
+        'document.querySelectorAll(".thumbs, .action-widgets").forEach(thumbsEl => {\n'
         '  const sample = thumbsEl.querySelector("[data-key]");\n'
         '  if (!sample) return;\n'
         '  const key = sample.dataset.key;\n'
+        '  // Skip injecting a duplicate task button if already present.\n'
+        '  const hasTaskAlready = thumbsEl.querySelector("[data-task_proposal]");\n'
         '  // Try to infer section from URL params; default to "topic".\n'
         '  // The data attributes only carry vote/key/date; section we\n'
         '  // tag in the email render is implicit by parent card class.\n'
@@ -2721,9 +2893,10 @@ def _dashboard_runtime_js(webhook_url: str, today_iso: str) -> str:
         '    \'<a href="#" class="dash-comment" style="font-size:11px;\'\n'
         '    + \'color:#6b7280;text-decoration:none;border-bottom:1px dotted #9ca3af;\'\n'
         '    + \'margin-right:8px;">💬 comment</a>\'\n'
-        '    + \'<a href="#" class="dash-task" style="font-size:11px;\'\n'
-        '    + \'color:#6b7280;text-decoration:none;border-bottom:1px dotted #9ca3af;\'\n'
-        '    + \'">📌 send to tasks</a>\'\n'
+        '    + (hasTaskAlready ? \'\' :\n'
+        '       \'<a href="#" class="dash-task" style="font-size:11px;\'\n'
+        '       + \'color:#6b7280;text-decoration:none;border-bottom:1px dotted #9ca3af;\'\n'
+        '       + \'">📌 send to tasks</a>\')\n'
         '  );\n'
         '  thumbsEl.appendChild(wrap);\n'
         '  // Comment toggle\n'
@@ -2755,8 +2928,10 @@ def _dashboard_runtime_js(webhook_url: str, today_iso: str) -> str:
         '      box.remove();\n'
         '    });\n'
         '  });\n'
-        '  // Send to tasks\n'
-        '  wrap.querySelector(".dash-task").addEventListener("click", e => {\n'
+        '  // Send to tasks (only if we injected it — already-present\n'
+        '  // anchors are handled by the main webhook click listener).\n'
+        '  const dashTask = wrap.querySelector(".dash-task");\n'
+        '  if (dashTask) dashTask.addEventListener("click", e => {\n'
         '    e.preventDefault();\n'
         '    // Use the item\'s nearest heading text as title.\n'
         '    const parent = thumbsEl.parentElement;\n'
@@ -3086,23 +3261,20 @@ def main():
     else:
         evidence_items = []
 
+    # Annotate prioritization + inbox: inject "✕ not a priority" /
+    # "📌 send to tasks" anchors and index items in one pass. Replaces
+    # the older extract_items_from_html(prioritization/inbox, …) calls.
+    prioritization, prio_items = annotate_prioritization(prioritization, today)
+    inbox_html, inbox_items_indexed = annotate_inbox(inbox_html, today)
+
     today_items = []
     today_items += action_items
     today_items += news_items
     today_items += funder_items
     today_items += ws_items
     today_items += evidence_items
-    today_items += extract_items_from_html(prioritization, {
-        "Top priorities":   "priority",
-        "Likely to slip":   "slip",
-        "Decisions needed": "decision",
-        "Calendar prep":    "priority",   # treat prep cues like priorities
-    })
-    today_items += extract_items_from_html(inbox_html, {
-        "Inbox":           "inbox",
-        "Decide / reply":  "inbox",
-        "This week":       "inbox",
-    })
+    today_items += prio_items
+    today_items += inbox_items_indexed
 
     # ---- semantic dedup against last 14 days of state via Haiku ----
     if state:
