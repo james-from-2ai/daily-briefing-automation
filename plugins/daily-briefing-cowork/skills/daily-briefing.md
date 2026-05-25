@@ -10,14 +10,21 @@ You are James Bedford's chief of staff at 2AI. Your job: produce James's daily b
 ## High-level flow
 
 ```
-pull_inputs.py → JSON dump
+pull_inputs.py → /tmp/briefing-inputs.json
   ↓ (you read, you think)
-synthesize each section in your own context
+synthesize each section → /tmp/section-*.html (raw)
+  ↓
+persist_state.py  (annotate widgets + dedup + state-sheet write + carryover HTML)
   ↓
 render_artifacts.py briefing.html dashboard.html
   ↓
 deliver.py  (Drive upload + Gmail + Slack + Pages push)
 ```
+
+Note: persist_state.py runs BEFORE render_artifacts.py because it
+mutates the section HTMLs in place (injecting 👍/👎 + action buttons,
+stripping duped blocks) and emits the carryover block — both feed into
+render_html.
 
 ## Step 1 — Pull all inputs
 
@@ -88,9 +95,43 @@ Based on `today.weekday()`:
 
 For each, use the same reasoning patterns as the Python version's system prompts.
 
-## Step 3 — Render artifacts
+## Step 3 — Persist state (annotate + dedup + carryover)
 
-Once all sections are synthesized, write each section's HTML to a known location and invoke:
+After you've written each section's raw HTML to `/tmp/section-*.html`,
+run persist_state.py. It will rewrite those files in place with the
+annotated + dedup-cleaned versions, write a carryover block, and persist
+to the state sheet.
+
+```bash
+python plugins/daily-briefing-cowork/helpers/persist_state.py \
+  --inputs-file /tmp/briefing-inputs.json \
+  --prioritization-file /tmp/section-priorities.html \
+  --inbox-file /tmp/section-inbox.html \
+  --news-file /tmp/section-news.html \
+  --funder-file /tmp/section-funder.html \
+  --whitespace-file /tmp/section-whitespace.html \
+  --evidence-file /tmp/section-evidence.html \
+  --ideas-file /tmp/section-ideas.html \
+  --source-proposals-file /tmp/source-proposals.json \
+  --carryover-out /tmp/section-carryover.html \
+  --carry-count-out /tmp/carry-count.txt \
+  --items-count-out /tmp/items-count.txt
+```
+
+If you have proposed sources from your daily-source-proposer or
+Friday-weekly-source-proposer reasoning, write them as a JSON list to
+`/tmp/source-proposals.json` first (shape: `[{"source_id": "...",
+"proposed_at": "2026-05-25", "status": "proposed"}, ...]`). If you
+don't, omit `--source-proposals-file` or write `[]` to the file.
+
+Pass `--no-haiku-dedup` if you want to skip the Haiku dedup API call
+and do dedup yourself in your own reasoning before writing the section
+HTMLs. (~$0.02 savings per run; v0.1 default keeps Haiku.)
+
+## Step 4 — Render artifacts
+
+Now that the section HTMLs are annotated + cleaned and the carryover
+block exists, invoke render_artifacts:
 
 ```bash
 python plugins/daily-briefing-cowork/helpers/render_artifacts.py \
@@ -106,6 +147,7 @@ python plugins/daily-briefing-cowork/helpers/render_artifacts.py \
   --evidence-file /tmp/section-evidence.html \
   --publisher-file /tmp/section-publisher.html \
   --sources-file /tmp/section-sources.html \
+  --carryover-file /tmp/section-carryover.html \
   --out-email /tmp/briefing-email.html \
   --out-dashboard /tmp/briefing-dashboard.html \
   --dashboard-url-out /tmp/dashboard-url.txt
@@ -113,20 +155,14 @@ python plugins/daily-briefing-cowork/helpers/render_artifacts.py \
 
 This wraps the existing `render_html` + `make_interactive_dashboard` + verify_urls pipeline. Output: two HTML files + the dashboard URL (UUID-named for GitHub Pages).
 
-## Step 4 — State updates
-
-Run `python plugins/daily-briefing-cowork/helpers/persist_state.py --section-files ...` to:
-- Index every item into the state sheet
-- Compute carryover from prior unacked days
-- Run semantic dedup against recent state (Haiku-replaceable now that you're doing synthesis — but for v0.1 keep the Haiku call for cost efficiency)
-
 ## Step 5 — Deliver
 
 ```bash
 python plugins/daily-briefing-cowork/helpers/deliver.py \
   --email-html /tmp/briefing-email.html \
   --dashboard-html /tmp/briefing-dashboard.html \
-  --dashboard-url-file /tmp/dashboard-url.txt
+  --dashboard-url-file /tmp/dashboard-url.txt \
+  --carry-count "$(cat /tmp/carry-count.txt)"
 ```
 
 Uploads Drive Doc, sends Gmail, posts Slack DM, commits dashboard to `docs/` + pushes to GitHub (which triggers Pages deploy via existing workflow).
