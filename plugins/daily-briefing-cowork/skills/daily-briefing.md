@@ -34,6 +34,31 @@ This script reuses every `pull_*` function from `daily_briefing.py` (calendar, D
 
 Read the JSON. **Do not summarise it — you'll use the raw fields below.**
 
+### JSON shape
+
+```jsonc
+{
+  "today": "2026-05-25", "weekday": 0, "is_funder_day": true,
+  "calendar":    [{"summary": "...", "start": "...", "end": "...", "attendees": [...]}, ...],
+  "drive":       [{"name": "...", "modifiedTime": "...", "mimeType": "...", "owners": [...]}, ...],
+  "oneonones":   {"Katie": "<recent 1:1 doc text>", "Sarah": "..."},
+  "inbox_signals": [{"kind": "needs_you|stale", "subject": "...", "from": "...",
+                     "snippet": "...", "thread_id": "...", "age_days": N}, ...],
+  "news_topics_text":  "<one-topic-per-line string from sheet>",
+  "recent_feedback":   "<bullet-list string>",
+  "state":             [{"key": "...", "section": "...", "last_seen": "...",
+                         "carry_count": "N", "status": "open|done",
+                         "text_html": "...", ...}, ...],
+  "acks":   [...],   "votes": [...],   "user_sources": [...],
+  "tasks_json":        [<cowork task objects>],
+  "journal_recent":    [<recent journal entries>],
+  "weather":           {...},  "stocks": {...},
+  "program_corpus":    {"<area>": [<recent Drive files>], ...},
+  "funder_watchlist":  [{"name": "...", "url": "...", ...}, ...],
+  "peer_publishers":   [...], "evidence_streams": [...]
+}
+```
+
 ## Step 2 — Synthesize each section (THIS IS YOUR REASONING WORK)
 
 For each section below, *think* through the output. Don't call any other Claude — you ARE the Claude. The system prompts below are the ones the Python version used; treat them as your own instructions.
@@ -102,6 +127,22 @@ run persist_state.py. It will rewrite those files in place with the
 annotated + dedup-cleaned versions, write a carryover block, and persist
 to the state sheet.
 
+**Which sections go through persist_state:**
+
+| Section | Annotated? | Indexed in state? |
+|---|---|---|
+| prioritization | yes (`✕ not a priority` / `📌 send to tasks`) | yes |
+| inbox | yes (`📌 send to tasks`) | yes |
+| news | yes (`👍 more like this` / `👎`) | yes |
+| funder | yes | yes |
+| whitespace | yes | yes |
+| evidence | yes | yes |
+| ideas | yes | yes |
+| trends | no — pass straight to render_artifacts | no |
+| publisher_landscape | no | no |
+| sources (Friday weekly proposer) | no — passed via `--source-proposals-file` JSON | proposals only |
+| sources_today (daily proposer) | no — passed via `--source-proposals-file` JSON | proposals only |
+
 ```bash
 python plugins/daily-briefing-cowork/helpers/persist_state.py \
   --inputs-file /tmp/briefing-inputs.json \
@@ -133,9 +174,12 @@ HTMLs. (~$0.02 savings per run; v0.1 default keeps Haiku.)
 Now that the section HTMLs are annotated + cleaned and the carryover
 block exists, invoke render_artifacts:
 
+Write your TL;DR string to `/tmp/section-tldr.txt` (file-based to avoid
+shell-quoting issues on long strings), then:
+
 ```bash
 python plugins/daily-briefing-cowork/helpers/render_artifacts.py \
-  --tldr "<tldr text>" \
+  --tldr-file /tmp/section-tldr.txt \
   --prioritization-file /tmp/section-priorities.html \
   --inbox-file /tmp/section-inbox.html \
   --funder-file /tmp/section-funder.html \
@@ -170,6 +214,14 @@ Uploads Drive Doc, sends Gmail, posts Slack DM, commits dashboard to `docs/` + p
 ## Step 6 — Exit cleanly
 
 Print a final status: section counts, items indexed, dashboard URL, delivery confirmations. Exit. No questions, no waiting — that's the followup skill's job.
+
+## Dry-run mode (for local testing without delivery)
+
+If you're running this manually to validate output (not via cron, and
+not intending to actually send to James), do steps 1–4 as normal but
+pass `--no-write` to persist_state.py and SKIP step 5 (deliver.py).
+The rendered email + dashboard HTMLs will be in `/tmp/`. Inspect them.
+Re-run with delivery once satisfied.
 
 ---
 

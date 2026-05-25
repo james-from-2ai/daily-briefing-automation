@@ -42,6 +42,9 @@ def _read_or_empty(path: str | None) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--tldr", default="")
+    parser.add_argument("--tldr-file", default=None,
+                        help="Read TL;DR from file instead of --tldr (avoids "
+                             "shell-quoting issues on long strings)")
     parser.add_argument("--widgets-file", default=None)
     parser.add_argument("--carryover-file", default=None)
     parser.add_argument("--prioritization-file", required=True)
@@ -64,6 +67,12 @@ def main() -> None:
     dashboard_slug = f"{today.isoformat()}-{uuid.uuid4().hex[:16]}"
     dashboard_url = f"{GITHUB_PAGES_BASE}/{dashboard_slug}.html"
 
+    tldr = args.tldr
+    if args.tldr_file:
+        p = Path(args.tldr_file)
+        if p.exists():
+            tldr = p.read_text(encoding="utf-8").strip()
+
     email_html = render_html(
         today=today,
         prioritization=_read_or_empty(args.prioritization_file),
@@ -76,7 +85,7 @@ def main() -> None:
         sources=_read_or_empty(args.sources_file),
         publisher_landscape=_read_or_empty(args.publisher_file),
         evidence=_read_or_empty(args.evidence_file),
-        tldr=args.tldr,
+        tldr=tldr,
         widgets_html=_read_or_empty(args.widgets_file),
         dashboard_url=dashboard_url,
         ideas=_read_or_empty(args.ideas_file),
