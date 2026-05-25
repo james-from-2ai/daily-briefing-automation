@@ -1,0 +1,27 @@
+{
+  "name": "daily-briefing-cowork",
+  "version": "0.1.0",
+  "description": "Daily briefing as a Claude Code session — synthesis runs in the agent's own context (billed under Claude.ai subscription), I/O is delegated to thin Python helpers that reuse daily_briefing.py's existing functions.",
+  "author": "james@aiaccessinitiative.org",
+  "skills": [
+    {
+      "name": "daily-briefing",
+      "description": "Autonomous daily briefing run. Pulls inputs, synthesizes all sections in-context, renders the dashboard, sends email + Slack + Drive Doc, pushes dashboard to GitHub Pages. Intended for non-interactive invocation (Windows Task Scheduler / cron).",
+      "path": "skills/daily-briefing.md"
+    },
+    {
+      "name": "daily-briefing-followup",
+      "description": "Interactive Q&A about today's briefing. Reads the artifacts produced by the autonomous run, walks through each actionable item, asks James whether to draft replies / promote to tasks / mark done / dismiss. Intended for manual invocation after the autonomous run completes.",
+      "path": "skills/daily-briefing-followup.md"
+    }
+  ],
+  "dependencies": {
+    "python": ">=3.11",
+    "python_packages_via_requirements_txt_at_repo_root": true
+  },
+  "execution_model": {
+    "kind": "local-claude-code",
+    "billing": "Claude.ai subscription",
+    "rationale": "The agent's reasoning replaces the ~14 anthropic.Anthropic().messages.create() calls in daily_briefing.py. Net effect: synthesis cost moves from API balance to subscription."
+  }
+}
