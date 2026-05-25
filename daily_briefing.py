@@ -1462,6 +1462,221 @@ def synthesize_evidence_digest(prefs_digest: str = "") -> str:
     return "\n\n".join(sections)
 
 
+def propose_news_sources_today(news_html: str, funder_html: str,
+                               state: list[dict],
+                               current_sources: list[str],
+                               today: dt.date) -> str:
+    """Scan today's news + funder deep-dive citations and recent state
+    for outlets that keep showing up but aren't in the current rotation.
+    Surfaces 0-3 candidates as a small section with ✅ accept / ❌ skip
+    anchors that hit the existing source-action route.
+
+    Cheap (Haiku call, ~$0.02) and runs daily — complements the heavier
+    weekly source-proposer that runs Friday.
+    """
+    # Extract domains from <a href> in today's content + recent state.
+    from urllib.parse import urlparse
+    def domains_from_html(html: str) -> list[str]:
+        urls = re.findall(r'<a\s+href="(https?://[^"]+)"', html, re.I)
+        return [urlparse(u).netloc.replace("www.", "") for u in urls if u]
+    today_domains = (domains_from_html(news_html) +
+                     domains_from_html(funder_html))
+    cutoff = today - dt.timedelta(days=7)
+    recent_domains: list[str] = []
+    for r in state:
+        if r.get("section") not in ("news", "funder", "evidence"):
+            continue
+        try:
+            seen = dt.datetime.strptime(r.get("last_seen", "")[:10], "%Y-%m-%d").date()
+            if seen < cutoff:
+                continue
+        except ValueError:
+            continue
+        recent_domains += domains_from_html(r.get("text_html", ""))
+    # Tally
+    from collections import Counter
+    counts = Counter(today_domains + recent_domains)
+    # Filter: drop known rotation members + obvious aggregators / search.
+    SKIP_DOMAINS = {
+        "google.com", "twitter.com", "x.com", "youtube.com",
+        "linkedin.com", "facebook.com", "wikipedia.org",
+        "github.com", "medium.com", "substack.com",  # too generic
+    }
+    rotation = {s.lower() for s in current_sources}
+    candidates = []
+    for domain, count in counts.most_common(20):
+        if count < 2:
+            break  # tally is sorted desc
+        if domain in SKIP_DOMAINS or any(s in domain for s in rotation):
+            continue
+        if any(domain.endswith(skip) for skip in SKIP_DOMAINS):
+            continue
+        candidates.append({"domain": domain, "count": count})
+    if not candidates:
+        return ""
+
+    msg = claude().messages.create(
+        model=DEDUP_MODEL,  # Haiku — classification work, cheap
+        max_tokens=900,
+        system=textwrap.dedent("""
+            You are reviewing news outlets that keep appearing in James's
+            daily briefing citations but aren't in his tracking rotation.
+            From the candidates below, pick 0-3 that are worth proposing
+            as new sources to follow. Use these criteria:
+
+            ✓ Substantive: original reporting / analysis on AI, global
+              development, funder behavior, or AI-for-LMIC work
+            ✓ Reasonably authoritative (think-tanks, sector publications,
+              quality blogs, academic outlets)
+            ✗ Skip: generic news aggregators, broad outlets like NYT/BBC
+              that already get covered organically, paywalled sites,
+              corporate marketing sites, social media
+
+            Output JSON only, no preamble, no markdown fences:
+              {"sources": [
+                {"domain": "...", "name": "Human-readable name",
+                 "why": "one phrase on why it's worth tracking"},
+                ...
+              ]}
+            If none of the candidates pass the bar, return {"sources": []}.
+        """).strip(),
+        messages=[{"role": "user", "content": json.dumps(candidates, indent=2)}],
+    )
+    raw = msg.content[0].text
+    m = re.search(r'\{[^{}]*"sources"[^{}]*\[.*?\][^{}]*\}', raw, re.S)
+    if not m:
+        return ""
+    try:
+        result = json.loads(m.group(0))
+    except json.JSONDecodeError:
+        return ""
+    picks = result.get("sources", [])
+    if not picks:
+        return ""
+
+    # Render each pick with accept/reject anchors that hit the existing
+    # source-action route (appends to the `sources` tab on accept).
+    items_html = ['<h2>Sources spotted today — worth tracking?</h2>',
+                  '<p style="font-size:12px;color:#888;margin:0 0 12px 0;">'
+                  'Outlets cited in today\'s news that aren\'t yet in your '
+                  'rotation. Accept to add to tomorrow\'s news picker.</p>']
+    new_source_rows: list[dict] = []
+    for pick in picks[:3]:
+        domain = pick.get("domain", "")
+        name = pick.get("name", domain)
+        why = pick.get("why", "")
+        # Stable ID so the accept/reject route can update the row.
+        source_id = f"daily-{today.isoformat()}-{hashlib.sha1(domain.encode()).hexdigest()[:8]}"
+        new_source_rows.append({
+            "source_id": source_id,
+            "proposed_at": dt.datetime.now().isoformat(),
+            "status": "pending",
+            "source_name": name,
+            "source_url": f"https://{domain}",
+            "source_query": f"{name} AI announcements last 7 days",
+        })
+        accept_url = _source_action_url(source_id, "accept")
+        reject_url = _source_action_url(source_id, "reject")
+        items_html.append(
+            f'<div style="margin:10px 0;padding:10px 14px;'
+            f'background:#f8fafc;border-left:3px solid #475569;'
+            f'border-radius:4px;">'
+            f'<strong>{name}</strong> '
+            f'<span style="color:#6b7280;font-size:12px;">({domain})</span>'
+            f'<br><em>{why}</em>'
+            f'<div style="margin-top:6px;font-size:12px;">'
+            f'<a href="{accept_url}" style="color:#15803d;'
+            f'border-bottom:1px dotted #15803d;text-decoration:none;'
+            f'margin-right:14px;">✅ accept</a>'
+            f'<a href="{reject_url}" style="color:#dc2626;'
+            f'border-bottom:1px dotted #dc2626;text-decoration:none;">'
+            f'❌ skip</a></div></div>'
+        )
+    # Mutate state-write list to be picked up by main's append_source_rows.
+    propose_news_sources_today._proposed = new_source_rows
+    return "\n".join(items_html)
+
+
+def propose_2ai_ideas(news_html: str, program_corpus: dict[str, list[dict]] | None,
+                      prefs_digest: str = "") -> str:
+    """1-3 concrete ideas 2AI could build/test/explore based on today's
+    news + recent AI releases vs. what 2AI already works on (Drive
+    corpus). Renders as a section card with send-to-tasks buttons per
+    idea. Sonnet + web_search, ~$0.30/day.
+    """
+    # Compact corpus summary by program area.
+    corpus_summary = ""
+    if program_corpus:
+        parts = []
+        for area, docs in program_corpus.items():
+            if not docs:
+                continue
+            titles = [d.get("name", "") for d in docs[:8]]
+            parts.append(f"**{area.title()}**: {'; '.join(titles)}")
+        corpus_summary = "\n".join(parts)
+    if not corpus_summary:
+        corpus_summary = ("(2AI's recent Drive corpus wasn't pulled today — "
+                          "base ideas on the news + general knowledge of "
+                          "2AI's AI-for-LMIC focus.)")
+    # Extract a digest of today's news for context.
+    news_plain = re.sub(r"\s+", " ",
+                        re.sub(r"<[^>]+>", " ", news_html or "")).strip()[:4000]
+    prefs_block = (f"\n\nJames's topic preferences (from 👍/👎): {prefs_digest}"
+                   if prefs_digest else "")
+
+    msg = claude().messages.create(
+        model=CLAUDE_RESEARCH_MODEL,
+        max_tokens=2500,
+        tools=[{
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 4,
+        }],
+        system=textwrap.dedent(f"""
+            You are proposing concrete things 2AI could build / test /
+            explore THIS WEEK based on (a) today's news in the briefing,
+            (b) what 2AI has been working on recently (corpus below),
+            and (c) any major AI releases / capability announcements you
+            find via web search in the last 7 days.
+
+            Output 1-3 ideas. Each idea must be:
+              • CONCRETE: name the artifact (a 1-pager, a prototype, a
+                pilot, a memo, an outreach email), the audience (who
+                inside or outside 2AI it goes to), and the next step
+                (what James does in the next 30 min if he wants to take
+                it on).
+              • DIFFERENTIATED: not something 2AI already has in flight
+                (cross-check against the corpus titles).
+              • TIMELY: tied to something that shipped or changed in
+                the last 7 days, not evergreen.
+              • RIGHT-SIZED: doable in 1-5 working days, not a quarter.
+
+            Voice: matter-of-fact, evidence-first, no breathless framing.
+            No "consider exploring" — pick a stance and recommend.
+
+            Output as HTML fragment, no <html>/<body> wrapper. Start with
+            <h2>Implementation ideas — what 2AI could ship this week</h2>.
+            For each idea, format as:
+              <ul><li>
+                <strong>[Title]</strong> — one short paragraph (2-3
+                sentences) with the artifact, audience, and next step.
+                <a href="URL">primary source</a> for the trigger.
+                <em>Effort:</em> 1-2 days / 3-5 days etc.
+              </li></ul>
+
+            2AI'S RECENT CORPUS (don't propose anything already in flight):
+            {corpus_summary}
+
+            TODAY'S BRIEFING (for context — what's already on James's radar):
+            {news_plain[:2000]}
+            {prefs_block}
+        """).strip(),
+        messages=[{"role": "user",
+                   "content": "Propose this week's implementation ideas."}],
+    )
+    return "".join(b.text for b in msg.content if hasattr(b, "text"))
+
+
 def synthesize_publisher_landscape(prefs_digest: str = "") -> str:
     """Once-a-month deep look at what peer publishers are putting out:
     each org's focus + gaps, plus sector-wide publishing gaps.
@@ -2528,7 +2743,9 @@ def render_html(today: dt.date, prioritization: str, news: str,
                 sources: str = "", publisher_landscape: str = "",
                 evidence: str = "", tldr: str = "",
                 widgets_html: str = "",
-                dashboard_url: str = "") -> str:
+                dashboard_url: str = "",
+                ideas: str = "",
+                sources_today: str = "") -> str:
     """Axios smart-brevity layout. Color-coded section cards, TL;DR strip,
     pill-style feedback widgets. The synth functions output their own
     <h2>Section name</h2> headings — we wrap each in a card div tagged
@@ -2675,6 +2892,10 @@ def render_html(today: dt.date, prioritization: str, news: str,
           .card-publisher h2 {{ color: #6d28d9; }}
           .card-sources    {{ border-left-color: #475569; }}
           .card-sources h2 {{ color: #475569; }}
+          .card-ideas      {{ border-left-color: #be185d; }}
+          .card-ideas h2   {{ color: #be185d; }}
+          .card-sourcestoday {{ border-left-color: #475569; }}
+          .card-sourcestoday h2 {{ color: #475569; }}
 
           /* "So what for 2AI:" callout — the synth prompts already emit
              this as <strong>So what for 2AI:</strong> followed by text.
@@ -2704,8 +2925,10 @@ def render_html(today: dt.date, prioritization: str, news: str,
         {carryover_html}
         {_section("priorities", prioritization)}
         {_section("inbox", inbox)}
+        {_section("ideas", ideas)}
         {_section("funder", funder)}
         {_section("news", news)}
+        {_section("sourcestoday", sources_today)}
         {_section("evidence", evidence)}
         {_section("whitespace", whitespace)}
         {_section("trends", trends)}
@@ -3156,14 +3379,37 @@ def main():
     print("  running news deep research…")
     news = synthesize_news_briefing(topics, recent_headlines, prefs_digest)
 
+    # ---- daily: propose new sources spotted in today's citations ----
+    print("  scanning citations for new sources to track…")
+    already_known_sources = ([f["name"] for f in FUNDER_WATCHLIST]
+                             + [r.get("source_name", "")
+                                for r in read_user_sources(creds)
+                                if r.get("status") == "accepted"])
+    sources_today_html = propose_news_sources_today(
+        news, funder_html, state, already_known_sources, today,
+    )
+    # The function stashes proposed rows on its own attr for state write.
+    daily_source_proposals = getattr(
+        propose_news_sources_today, "_proposed", [],
+    )
+    if hasattr(propose_news_sources_today, "_proposed"):
+        delattr(propose_news_sources_today, "_proposed")
+    print(f"    {len(daily_source_proposals)} candidate(s) surfaced")
+
+    # ---- daily: 1-3 implementation ideas for 2AI ----
+    # Pull program-area corpus (Drive sample) for context. Reused later
+    # if whitespace runs today (Monday).
+    print("  pulling program-area corpus…")
+    program_corpus = pull_program_area_corpus(creds)
+    print("  generating 2AI implementation ideas…")
+    ideas_html = propose_2ai_ideas(news, program_corpus, prefs_digest)
+
     whitespace = ""
     if today.weekday() == WHITESPACE_WEEKDAY:
-        print("  pulling program-area corpus…")
-        corpus = pull_program_area_corpus(creds)
-        for area, files in corpus.items():
+        for area, files in program_corpus.items():
             print(f"    {area}: {len(files)} recent docs")
         print("  running white-space analysis…")
-        whitespace = synthesize_whitespace(corpus, feedback, prefs_digest)
+        whitespace = synthesize_whitespace(program_corpus, feedback, prefs_digest)
     else:
         print(f"  skipping white-space (runs on weekday {WHITESPACE_WEEKDAY}, "
               f"today is {today.weekday()})")
@@ -3230,6 +3476,12 @@ def main():
         whitespace, ws_items = annotate_topics_li(whitespace, "whitespace", today)
     else:
         ws_items = []
+    # 2AI ideas: annotate as <li> topics so each idea gets 👍/👎 + JS
+    # comment + send-to-tasks affordances.
+    if ideas_html:
+        ideas_html, ideas_items = annotate_topics_li(ideas_html, "ideas", today)
+    else:
+        ideas_items = []
     if evidence:
         # Each <div border-left> in the evidence digest is one paper.
         # Reuse the li annotator pattern by retargeting the regex.
@@ -3273,6 +3525,7 @@ def main():
     today_items += funder_items
     today_items += ws_items
     today_items += evidence_items
+    today_items += ideas_items
     today_items += prio_items
     today_items += inbox_items_indexed
 
@@ -3316,7 +3569,9 @@ def main():
                        inbox_html, funder_html, carryover_html,
                        trends, sources_html, publisher_landscape,
                        evidence, tldr=tldr, widgets_html=widgets_html,
-                       dashboard_url=dashboard_url)
+                       dashboard_url=dashboard_url,
+                       ideas=ideas_html,
+                       sources_today=sources_today_html)
 
     print("  verifying cited URLs…")
     html, bad_urls = verify_urls(html)
@@ -3339,9 +3594,13 @@ def main():
 
     print("  persisting state…")
     write_state(creds, state)
-    if new_source_rows:
-        print(f"  appending {len(new_source_rows)} proposed sources…")
-        append_source_rows(creds, new_source_rows)
+    # Merge weekly (Friday) proposer output with daily proposer output —
+    # both target the same `sources` tab and use the same accept/reject
+    # route, so they can share the write.
+    all_source_proposals = new_source_rows + daily_source_proposals
+    if all_source_proposals:
+        print(f"  appending {len(all_source_proposals)} proposed sources…")
+        append_source_rows(creds, all_source_proposals)
 
     print("  uploading to Drive…")
     doc_link = upload_drive_doc(creds, html, today)
