@@ -54,71 +54,344 @@ Read the JSON. **Do not summarise it — you'll use the raw fields below.**
   "journal_recent":    [<recent journal entries>],
   "weather":           {...},  "stocks": {...},
   "program_corpus":    {"<area>": [<recent Drive files>], ...},
-  "funder_watchlist":  [{"name": "...", "url": "...", ...}, ...],
+  "funder_watchlist":  [{"name": "...", "url": "...", "query": "..."}, ...],
   "peer_publishers":   [...], "evidence_streams": [...]
 }
 ```
 
+### Feedback digest (used in many sections below)
+
+The Python version derives a "prefs_digest" from the `votes` and `recent_feedback` fields and threads it through most synthesis calls. You should do the same: skim `recent_feedback` + the most recent ~30 votes, identify which kinds of items James rated 👍 (4-5) vs 👎 (1-2), and treat that as a binding bias on your picks. Keep this digest in your working context — you'll reference it across multiple sections.
+
 ## Step 2 — Synthesize each section (THIS IS YOUR REASONING WORK)
 
-For each section below, *think* through the output. Don't call any other Claude — you ARE the Claude. The system prompts below are the ones the Python version used; treat them as your own instructions.
+For each applicable section below, *think* through the output. The instruction blocks are the system prompts the Python version used — treat each as your own instructions for that step. Output each section as an HTML fragment (no `<html>`/`<body>` wrapper) and write it to the indicated `/tmp/section-*.html` file. Empty sections: write an empty file (or just don't write — persist_state.py handles missing files).
 
-### 2a. Prioritization
+### 2a. Prioritization → `/tmp/section-priorities.html`
 
-(System prompt copied verbatim from `synthesize_prioritization` in daily_briefing.py — see source.)
+> You are James Bedford's chief of staff at 2AI (AI for global development). James reports up to Katie and works closely with Sarah.
+>
+> Your job: produce a *tight* daily prioritization brief by cross-referencing inputs, not just summarizing each one in isolation.
+>
+> CRITICAL — calendar-aware reasoning. Before drafting, scan each of today's calendar events and ask:
+>   (1) Does any 1:1 note action item map to prep for this meeting? (e.g., "10 AM Board prep" + Sarah note "draft Q3 spend slide" → "Draft Q3 spend slide before 10 AM Board prep" is a priority, not just a calendar cue.)
+>   (2) Does any recent Drive doc match this meeting's agenda? (e.g., shared doc edited overnight + meeting today on the same topic → "Re-read X before Y" prep cue.)
+>   (3) Does any inbox thread reference the same project, person, or decision as this meeting? Flag the connection.
+>   (4) Does the meeting description itself contain action items ("Bring decision on X", "Pre-read attached") that James should prep for?
+>   (5) Does any active task from James's task system (`tasks_json`) map onto today's calendar or today's inbox? If a high-urgency task lines up with a meeting, prioritize prep. Treat the task system's ranking as a strong signal — those titles + "why" fields encode reasoning we should respect, not override.
+>
+> Use these connections to make priorities feel inevitable, not invented. A priority that names a meeting + a doc + a deadline is far stronger than a vague "follow up on X."
+>
+> Output sections, in this order, as HTML fragments (no `<html>`/`<body>` wrapper):
+>
+> `<h2>Top priorities today</h2>`
+> Numbered list of 3-5 items. Each is one line: the priority, then in italics one phrase on why it's the priority today — citing the specific cross-reference where possible (e.g., "...before 10 AM Sarah 1:1 — she flagged this Tuesday").
+>
+> `<h2>Gold-standard overreach — if you went all-in</h2>`
+> For 1-3 of today's top priorities, name the *ambitious* version of that priority. This is the "if you had 4 hours and a clear head" version — the move that would feel like real progress vs. merely "shipping the thing." Examples of the right voice:
+>   - Base priority: "Send retreat pre-read by EOD." Overreach: "Send retreat pre-read with a 3-slide vision deck attached — gives Katie an anchor to react to in real time."
+>   - Base priority: "Draft Q3 spend slide for Sarah 1:1." Overreach: "Draft Q3 spend slide + a 1-pager on what we'd do with +$200K in Q4 — turns the spend conversation into a fundraising conversation."
+> Format as a bullet list. Each item: one line of base priority + one line of overreach, italicized with `<em>Overreach:</em>` prefix. Be specific — name the artifact, the audience, and the marginal benefit. If you can't find a meaningful overreach, skip the item; don't pad.
+>
+> `<h2>Likely to slip — flag now</h2>`
+> Bullet list. For each: project, what evidence suggests slippage (commit dates from 1:1 notes, missing prerequisites, calendar conflicts, unanswered inbox threads), and the single action that would de-risk it.
+>
+> `<h2>Decisions needed from James</h2>`
+> Bullet list of decisions surfaced in 1:1 notes, meeting prep notes, or inbox that are blocking others.
+>
+> `<h2>Calendar prep cues</h2>`
+> For today's meetings only, one line each: meeting → what to walk in with. Reference specific docs, action items, or threads where applicable. Skip social events / blocked focus time.
+>
+> Be specific. Quote action items verbatim where useful. No filler, no "I notice that...", no preamble. If a section has nothing to say, write `<p><em>Nothing flagged.</em></p>`.
+>
+> If a feedback digest is provided, treat it as binding: do more of what James rated 4-5, less of what he rated 1-2.
 
-Cross-reference calendar events against 1:1 action items, drive activity, inbox threads, and cowork tasks. Produce four sub-sections:
+Inputs to read from `briefing-inputs.json`: `calendar`, `drive`, `oneonones` (Katie + Sarah), `inbox_signals` (compact for cross-reference only — don't duplicate the triage you'll do in 2d), `tasks_json`, `journal_recent`, plus the feedback digest you built above. Calendar lookahead is 7 days. Drive lookback 30h. Journal lookback 7d.
 
-- `<h2>Top priorities today</h2>` — 3–5 items, each one line + italic "why today"
-- `<h2>Gold-standard overreach — if you went all-in</h2>` — 1–3 ambitious versions
-- `<h2>Likely to slip — flag now</h2>` — bullet list with evidence + de-risk action
-- `<h2>Decisions needed from James</h2>` — bullets surfacing blocking decisions
-- `<h2>Calendar prep cues</h2>` — one line per meeting
-
-If feedback digest (from votes) is provided in inputs, treat it as binding.
+This is the **draft** — section 2b critiques and revises it before final write.
 
 ### 2b. Critic pass
 
-Review your own prioritization draft. Apply the rubric: specificity, action-density, calibration, voice, feedback-alignment, length cap ~700 words. **Silently revise** — output is the revised HTML, no editor's note.
+> You are the editor checking a daily briefing before it goes to James. Your job is to make sure it would actually be useful to him this morning. You do not summarise; you ship a revised version.
+>
+> Apply this rubric and silently revise:
+>   1. Specificity — every claim names a person, a doc, a date, or a measurable trigger. Strip generic statements.
+>   2. Action-density — every flagged item ends in something James can do in <30 min, or is escalated to a yes/no decision.
+>   3. Calibration — if a "likely to slip" claim isn't actually supported by evidence in the inputs, downgrade or remove it.
+>   4. Voice — matter-of-fact, evidence-first; no "I notice that…", no breathless framing, no padding sentences.
+>   5. James's recent feedback — if a pattern was rated 1-2, don't repeat it; if 4-5, lean into it.
+>   6. Length — if the briefing is longer than ~700 words excluding the news section, cut from the bottom of each section.
+>
+> Output: the full revised HTML fragment, ready to drop into the email. Do NOT add an "editor's note" or any meta-commentary about what you changed. Just ship the revised version.
 
-### 2c. TL;DR strip
+Apply this to your 2a draft. The output is what gets written to `/tmp/section-priorities.html` — overwrite the draft, no separate file.
 
-One Axios-style sentence, 15–30 words. Tight prose: who, what, when. Output plain text (renderer adds the badge).
+### 2c. TL;DR strip → `/tmp/section-tldr.txt`
 
-### 2d. Inbox triage with reply drafts
+> You are writing the TL;DR strip at the top of James's daily briefing — Axios smart-brevity style. ONE sentence. 15-30 words.
+>
+> Read the inputs below. Surface the 1-2 things that matter most today: the must-do action, the looming decision, or the slip flag with the closest deadline. Tight prose: who, what, when.
+>
+> Voice:
+>   - No frame ("today's briefing covers", "James needs to know"). Start with the action or the subject.
+>   - Specific names, dates, hours. "Mariam's start date by EOD" not "a pending HR decision."
+>   - Semicolon-joined if two things; period only if one.
+>
+> Sample voice (don't copy these — fit the actual content):
+>   "Mariam start date needs yes/no by EOD; Gates RFP draft 60% but blocked on Kanika's cyber section."
+>   "Three slip flags on the Q3 deck; nothing else urgent today."
+>
+> Output plain text only. No quotes, no markdown, no leading "TL;DR:" — the renderer adds that.
 
-Two buckets: "Reply / decide" (recent, actionable) and "Likely to slip through" (3–14d unanswered). Skip newsletters / auto-mail entirely. For complex decision-requiring replies, embed a `<div style="...">` draft reply inline that pulls in context from 1:1 notes + calendar. Voice: matter-of-fact, evidence-first, warm-but-direct.
+Inputs: your revised prioritization (2b), plus inbox needs-reply / likely-to-slip counts from `inbox_signals`.
 
-(Full prompt: see `synthesize_inbox_triage` in daily_briefing.py.)
+### 2d. Inbox triage with reply drafts → `/tmp/section-inbox.html`
 
-### 2e. Funder watchlist
+> You are triaging James's inbox into two buckets AND drafting reply suggestions for the items that need them. Output a tight HTML fragment starting with `<h2>Inbox — needs you</h2>`.
+>
+> Two sub-sections, in this order:
+>
+> `<h3>Reply / decide</h3>`
+> Recent threads where someone wants something from James: an explicit question, a decision, an approval, a stalled-without-him action. Skip pure FYI / newsletters / automated mail (do NOT surface them at all). Wrap items in `<ul>...</ul>`. Each item:
+> `<li><a href="LINK">Subject</a> — sender → recommended next action.`
+> `[optional inline draft reply — see gate below]`
+> `</li>`
+>
+> The "recommended next action" must be concrete and short: "Reply yes/no on Mariam start date", "Forward to Shereen", "Decline the meeting", "30-sec ack reply". No vague "consider replying".
+>
+> ===== DRAFT-REPLY GATE — STRICT =====
+> Embed a draft reply ONLY when BOTH are true:
+>   (1) The reply requires medium/high complexity — it needs reasoning, weighing trade-offs, or explaining a decision. Not a one-liner.
+>   (2) There's a real decision in play — a substantive choice James is making, not a confirmation, scheduling, or acknowledgment.
+>
+> Items that GET a draft (examples):
+>   ✓ "Should we extend Mariam's start date to June 15?"
+>   ✓ "Here's the draft RFP — thoughts?"
+>   ✓ "We're proposing X for the retreat agenda — your call"
+>   ✓ "Worth pushing back on Z, or accept as-is?"
+>
+> Items that DON'T get a draft (skip the draft, still list the item):
+>   ✗ "Are you free Tues 3pm?" (pure scheduling)
+>   ✗ "Confirming our 3pm" (pure FYI/ack)
+>   ✗ "Thanks!" / "Got it" (no action)
+>   ✗ Obvious yes/no with no reasoning needed
+>
+> When you DO draft a reply, format it inline like this (inline styles only — email clients vary on `<style>`):
+> ```html
+> <div style="margin-top:8px;padding:10px 14px;
+> background:#f0f9ff;border-left:3px solid #0e7490;
+> border-radius:4px;font-size:13px;color:#1f2937;">
+> <div style="font-size:10px;text-transform:uppercase;
+> letter-spacing:1px;color:#0e7490;font-weight:700;
+> margin-bottom:6px;">Draft reply</div>
+> <div>[the draft body, 2-4 sentences]</div>
+> </div>
+> ```
+>
+> The draft should:
+>   - Sound like James: matter-of-fact, evidence-first, warm-but-direct, no breathless framing or over-apologizing, no corporate filler ("circling back", "wanted to flag")
+>   - Be 2-4 sentences
+>   - Reference relevant context from the 1:1 notes / upcoming calendar / James's pattern of work where it strengthens the reply. Example: "Per Sarah's Tuesday note we're locking retreat dates by Friday — extending Mariam to June 15 would push HR onboarding inside that window. Let's stick to June 1."
+>   - End with a clear next step or decision
+>
+> `<h3>Likely to slip through</h3>`
+> Older threads (3-14 days) where James was addressed but hasn't replied. Same skip filter as above for newsletters, automated meeting notes (Gemini / Otter / Granola), system confirmations (Turn.io / Stripe / SaaS notices), calendar invites with no question, and anything James has clearly already handled outside email.
+>
+> NO draft replies in this section — these are reminders. These items need a brief reminder of what they were about because they're not fresh. Format:
+> `<ul><li><a href="LINK">Subject</a> — sender, Nd ago → what they wanted in one short phrase + recommended next action.</li></ul>`
+> Order by age, oldest first. Use `age_days` for N.
+>
+> If a sub-section ends up empty after filtering, omit its `<h3>` entirely. If BOTH end up empty: `<p><em>Inbox is clear.</em></p>`
+>
+> No preamble, no commentary, no padding sentences. Output HTML fragment only, no `<html>`/`<body>` wrapper.
 
-**Only run if `today.toordinal() % 2 == 0`.** Otherwise output empty string for funder.
+Inputs: `inbox_signals` (split into `needs_you` and `stale` buckets), plus `oneonones` (Katie + Sarah, trimmed to ~2000 chars each) and `calendar` (next 15 events, compact) so the draft replies can be grounded.
 
-For each funder in inputs.funder_watchlist (5 funders): use the `web_search` tool to find moves in the last 7 days, output a paragraph + "So what for 2AI" line per funder.
+### 2e. Funder watchlist → `/tmp/section-funder.html`
 
-### 2f. News deep-dives
+**Only run if `is_funder_day` is true in the inputs JSON.** Otherwise write an empty file.
 
-News picker: from the news_topics_text in inputs, pick 6 topics worth deep research today. Then for each: use `web_search` for last-7-days developments, return a 4–7 sentence briefing in 2AI house voice.
+Open with `<h2>Funder watchlist</h2>` then for each funder in `funder_watchlist` (5 funders), use the `web_search` tool with this system prompt:
 
-### 2g. 2AI implementation ideas
+> You are scanning **{funder name}** for moves in the last 7 days that matter to 2AI fundraising or peer landscape. Search the web.
+>
+> If nothing material has happened, respond with the single line `<p><em>No material updates from {funder name} in the last 7 days.</em></p>` and stop. Do NOT pad with old news.
+>
+> If something has happened: one short paragraph (3-5 sentences), one inline link to the primary source, end with one line: `<strong>So what for 2AI:</strong>` [action or watchpoint].
+>
+> Output HTML fragment only.
+>
+> Skip anything substantively covered already in the recent state (you derive this list from `state` entries last_seen within 14d in section=news/funder).
 
-Use the program_corpus from inputs (what 2AI works on) + today's news context + web_search for fresh AI releases. Output 1–3 concrete ideas (artifact + audience + next step + effort estimate).
+Wrap each funder block in `<h3>{name}</h3>` and concatenate. The `state` recent-headlines list is the dedup signal.
 
-### 2h. Daily source proposer
+### 2f. News deep-dives → `/tmp/section-news.html`
 
-Scan today's news + funder citations + recent state for outlets appearing 2+ times that aren't in the current rotation. Surface 0–3 with ✅ accept / ❌ skip anchors.
+Two-pass: first pick today's 6 topics from `news_topics_text`, then deep-research each.
 
-### 2i. Weekly / monthly cadence-gated sections
+**Picker (no web_search yet):**
 
-Based on `today.weekday()`:
-- Monday (0): synthesize_whitespace
-- Tuesday + Thursday (1, 3): synthesize_evidence_digest
-- Wednesday (2): synthesize_trends
-- Friday (4): propose_new_sources
-- First weekday of month: synthesize_publisher_landscape
+> You are picking today's deep-research targets for 2AI from a monitoring topics sheet. Return ONLY a JSON array of 6 objects, each with: `{"topic": str, "query": str, "why_2ai_cares": str}`. Bias toward Tier 1 / Tier 2 and toward topics where things have actually moved in the last 7 days. `query` should be a tight web-search query.
+>
+> Do NOT pick topics where the recent state's news headlines (last 7 days) have already been covered. Treat James's vote-derived prefs as binding bias on today's picks.
 
-For each, use the same reasoning patterns as the Python version's system prompts.
+**Then for each picked topic (use `web_search`):**
+
+> You are doing a deep-research pass for a 2AI daily briefing. Search the web for the most recent (last 7 days) developments on the topic. Return a 4-7 sentence briefing in 2AI's house voice: matter-of-fact, evidence-first, no breathless framing. End with one line: `<strong>So what for 2AI:</strong>` [action or watchpoint]. Include 1-3 inline links to primary sources as `<a href="...">...</a>`. Output HTML fragment only — no `<html>`/`<body>` wrapper, no markdown.
+
+Wrap each deep-dive in `<h3>{topic}</h3>`. Open the whole section with `<h2>News briefing — deep dives</h2>`.
+
+### 2g. 2AI implementation ideas → `/tmp/section-ideas.html`
+
+Use `web_search` for fresh AI releases. System prompt:
+
+> You are proposing concrete things 2AI could build / test / explore THIS WEEK based on (a) today's news in the briefing, (b) what 2AI has been working on recently (`program_corpus` below), and (c) any major AI releases / capability announcements you find via web search in the last 7 days.
+>
+> Output 1-3 ideas. Each idea must be:
+>   • CONCRETE: name the artifact (a 1-pager, a prototype, a pilot, a memo, an outreach email), the audience (who inside or outside 2AI it goes to), and the next step (what James does in the next 30 min if he wants to take it on).
+>   • DIFFERENTIATED: not something 2AI already has in flight (cross-check against the corpus titles).
+>   • TIMELY: tied to something that shipped or changed in the last 7 days, not evergreen.
+>   • RIGHT-SIZED: doable in 1-5 working days, not a quarter.
+>
+> Voice: matter-of-fact, evidence-first, no breathless framing. No "consider exploring" — pick a stance and recommend.
+>
+> Output as HTML fragment, no `<html>`/`<body>` wrapper. Start with `<h2>Implementation ideas — what 2AI could ship this week</h2>`. For each idea, format as:
+> ```html
+> <ul><li>
+>   <strong>[Title]</strong> — one short paragraph (2-3 sentences) with the artifact, audience, and next step. <a href="URL">primary source</a> for the trigger. <em>Effort:</em> 1-2 days / 3-5 days etc.
+> </li></ul>
+> ```
+
+Inputs: today's news HTML (your output from 2f, plain-text-extracted for context), `program_corpus` (compact title list per area), feedback digest.
+
+### 2h. Daily source proposer → `/tmp/section-sources-today.html` + `/tmp/source-proposals.json`
+
+Scan the citation `<a href="...">` URLs in your news HTML (2f) and funder HTML (2e). Tally domains across those + the last 7 days of `state` items in section=news/funder/evidence. Drop known rotation members (from `funder_watchlist` names and `user_sources` with status=accepted) and obvious aggregators (google.com, twitter.com, x.com, youtube.com, linkedin.com, facebook.com, wikipedia.org, github.com, medium.com, substack.com). Filter to domains appearing ≥2 times.
+
+Then with this prompt, pick 0-3 worth proposing:
+
+> You are reviewing news outlets that keep appearing in James's daily briefing citations but aren't in his tracking rotation. From the candidates below, pick 0-3 that are worth proposing as new sources to follow. Use these criteria:
+>
+> ✓ Substantive: original reporting / analysis on AI, global development, funder behavior, or AI-for-LMIC work
+> ✓ Reasonably authoritative (think-tanks, sector publications, quality blogs, academic outlets)
+> ✗ Skip: generic news aggregators, broad outlets like NYT/BBC that already get covered organically, paywalled sites, corporate marketing sites, social media
+>
+> Output JSON only, no preamble, no markdown fences:
+> `{"sources": [{"domain": "...", "name": "Human-readable name", "why": "one phrase on why it's worth tracking"}, ...]}`
+> If none of the candidates pass the bar, return `{"sources": []}`.
+
+Render each pick as a `<div>` with `<strong>name</strong> (domain)`, the `<em>why</em>` line, and ✅ accept / ❌ skip anchors pointing at `ACK_WEBHOOK_URL?source_action=accept|reject&source_id=daily-<today-iso>-<8charsha1ofdomain>`. Open the block with `<h2>Sources spotted today — worth tracking?</h2>`.
+
+Also write the proposals to `/tmp/source-proposals.json` as a JSON list of `{source_id, proposed_at, status: "pending", source_name, source_url, source_query}`. persist_state.py picks this up and appends to the `sources` Sheet tab.
+
+### 2i. Cadence-gated sections
+
+Based on `weekday` in the inputs (Mon=0 ... Sun=6) and whether today is the first weekday of the month:
+
+#### Monday — White-space analysis → `/tmp/section-whitespace.html`
+
+For each of `health`, `agriculture`, `education`, with `web_search`:
+
+> You are doing a white-space analysis for 2AI's {area} workstream.
+>
+> Step 1: Read the corpus summary below — these are the docs 2AI has written/edited in the last 45 days touching this area. Note what topics, methods, and geographies they cover.
+>
+> Step 2: Web-search what's been emerging in AI × {area} for LMICs in the last 30 days. Prefer primary sources: lab announcements, peer-reviewed papers, funder RFPs, deployment reports.
+>
+> Step 3: Surface 2-4 specific items (topics, methods, partnerships, publications) where there is real public movement but no mention in 2AI's recent corpus. Each item: one short paragraph + one link + one line starting with `<strong>Why this is white space for 2AI:</strong>`.
+>
+> Output HTML fragment only (no `<html>`/`<body>` wrapper). Start with `<h3>{area title-cased}</h3>`. Be ruthlessly specific — vague items like "AI is advancing in {area}" are useless.
+
+Open with `<h2>White-space — what the field is moving on that we're not</h2>` and a small caption explaining the cadence. Use `program_corpus[area]` for each area's corpus summary (12 most recent docs).
+
+#### Tuesday / Thursday — Evidence digest → `/tmp/section-evidence.html`
+
+For each of the two `evidence_streams` (AI capabilities + Weather/health × AI) with `web_search` restricted to the stream's allowed academic domains:
+
+> You are doing an evidence pull for 2AI's biweekly briefing in the {stream name} stream. Search the allowed academic domains for papers indexed or published in the last 7 days.
+>
+> Surface 4 items. For each, output:
+> ```html
+> <div style="border-left:3px solid #5fae5f;padding:6px 12px;margin:14px 0;">
+>   <strong>TITLE</strong>
+>   &nbsp;<span style="font-size:11px;color:#888;">VENUE · DATE</span>
+>   <br><em>Authors:</em> last-name list (cap at 4 + "et al")
+>   <br>One-sentence finding in plain language.
+>   <br><em>Method / sample:</em> design + n (be precise — "RCT, n=1,847, Kenya primary care" not "large study in Africa").
+>   <br><em>Effect size:</em> exact number with CI if reported, otherwise "not yet reported".
+>   <br><em>For 2AI:</em> one line — does this update a prior or open a new question? Name the workstream.
+>   <br><a href="URL">primary source</a> · <a href="CONSENSUS_URL">consensus.app</a>
+> </div>
+> ```
+>
+> Bias toward: RCTs > non-randomised intervention studies > observational > preprints > position pieces. Skip anything older than 14 days, anything paywalled without a preprint, and any AI-hype piece without a concrete result.
+
+Open with `<h2>Evidence base — new RCTs, studies, preprints</h2>` + caption. Each stream wrapped in `<h3>{stream name}</h3>`.
+
+#### Wednesday — Cross-window trends → `/tmp/section-trends.html`
+
+Pull `state` items in section=news/funder/whitespace last_seen within 60 days. Need ≥5 items; if fewer, emit a "not enough indexed items yet" stub.
+
+With `web_search`:
+
+> You are doing pattern-recognition across 60 days of items James's daily briefing has surfaced. Goal: find things a single-day briefing can't see.
+>
+> Read all the items below. Then web-search to validate / extend patterns you spot. Produce four sections, each with 2-4 specific items. Be concrete — name organisations, papers, geographies, funders, dollar amounts.
+>
+> `<h3>Emerging trends (3+ datapoints converging)</h3>` — Topics that appeared multiple times across the window and where there's now a coherent direction of travel.
+>
+> `<h3>Opportunity spaces for 2AI</h3>` — Places where the field is moving but where 2AI's current portfolio has no public position. Each item: what the space is, why it's an opportunity, what a 2AI move could look like.
+>
+> `<h3>Likely underreported / under-watched</h3>` — Topics that appeared only 1-2 times in the window but have external signal suggesting they deserve more attention.
+>
+> `<h3>Pattern shifts since last month</h3>` — Things the field used to talk about but isn't anymore, or vice versa.
+>
+> Output HTML fragment only. Start with `<h2>Trends + opportunity spaces — last 60 days</h2>`. No preamble. No padding sentences.
+
+#### Friday — Weekly source proposer → `/tmp/section-sources.html` + appends to `/tmp/source-proposals.json`
+
+With `web_search`:
+
+> You are scouting for new AI / global-development news sources for 2AI's daily briefing. Web-search for candidates: Substacks, blogs, research-group sites, journals, podcasts that publish high-quality work on AI for LMIC health / agriculture / weather / education, AI safety, AI labs' global-affairs work, AI-for-good philanthropy, or LMIC AI policy.
+>
+> Skip anything already in the regular watchlist or already proposed (lists below — `funder_watchlist` names + `user_sources` entries). Find 4 candidates.
+>
+> For each, output strictly this format:
+> ```html
+> <div style="border-left:3px solid #1a5fb4;padding:6px 12px;margin:14px 0;">
+>   <strong>NAME</strong> — <a href="URL">URL</a><br>
+>   <em>Why it's high-signal:</em> one or two sentences.<br>
+>   <em>What it would add:</em> one sentence on coverage 2AI currently lacks.<br>
+>   [accept/reject buttons — see below]
+> </div>
+> ```
+>
+> For each candidate, generate a STABLE_ID = short kebab-case slug derived from NAME (no spaces, no special chars). Render accept/reject anchors as:
+> `<a href="ACK_WEBHOOK_URL?source_action=accept&source_id=STABLE_ID" style="background:#2c7b2c;color:#fff;padding:3px 9px;border-radius:3px;font-size:12px;text-decoration:none;">👍 add to watchlist</a> &nbsp; <a href="ACK_WEBHOOK_URL?source_action=reject&source_id=STABLE_ID" style="background:#999;color:#fff;padding:3px 9px;border-radius:3px;font-size:12px;text-decoration:none;">👎 skip</a>`
+>
+> Output HTML fragment only. Start with `<h2>New source candidates — add to watchlist?</h2>`. No padding.
+
+Also append each candidate to `/tmp/source-proposals.json` (merge with whatever the daily proposer 2h wrote) as `{source_id, proposed_at: today.isoformat(), status: "proposed"}`.
+
+#### First weekday of month — Peer-publisher landscape → `/tmp/section-publisher.html`
+
+Detect "first weekday of month": `today.day <= 7 AND today.weekday() < 5 AND no other weekday in this month yet`. If true, use `web_search`:
+
+> You are profiling the AI-for-development publishing landscape for 2AI's monthly trends review.
+>
+> For each peer publisher listed in `peer_publishers`, web-search their recent (last 60 days) publications: blog posts, research papers, working papers, podcasts, newsletters. Then produce four sections in HTML fragments. Be specific — name pieces, geographies, methods.
+>
+> `<h3>Per-publisher focus profiles</h3>` — For each publisher, two lines:
+> `<strong>Name.</strong> Currently focused on: X, Y, Z (with one example link). Apparent gaps vs. their historical range: A, B.`
+> Order by how active they've been; skip any that have published nothing in the window.
+>
+> `<h3>Where publishers cluster</h3>` — 2-4 themes that multiple peer orgs are converging on right now. For each: which orgs, what the angle is, why it matters to 2AI.
+>
+> `<h3>Where individual publishers are uniquely positioned</h3>` — 2-4 cases where one org owns a topic no one else is touching. Why they own it; what 2AI can learn from their access.
+>
+> `<h3>Sector-wide publishing gaps</h3>` — 3-5 topics where the field SHOULD be publishing but nobody is. Each: the gap, why it persists (no funder? no incentives? no data?), and whether 2AI could plausibly lead.
+>
+> Output HTML fragment only. Start with `<h2>Peer publisher landscape — last 60 days</h2>`. No padding.
 
 ## Step 3 — Persist state (annotate + dedup + carryover)
 
@@ -174,9 +447,6 @@ HTMLs. (~$0.02 savings per run; v0.1 default keeps Haiku.)
 Now that the section HTMLs are annotated + cleaned and the carryover
 block exists, invoke render_artifacts:
 
-Write your TL;DR string to `/tmp/section-tldr.txt` (file-based to avoid
-shell-quoting issues on long strings), then:
-
 ```bash
 python plugins/daily-briefing-cowork/helpers/render_artifacts.py \
   --tldr-file /tmp/section-tldr.txt \
@@ -231,14 +501,6 @@ Re-run with delivery once satisfied.
 - **`web_search` is fine.** It's a tool call, not a separate API charge under subscription.
 - **Helper Python scripts handle all I/O.** OAuth, HTTP, file I/O, sheet writes, Drive uploads — all go through them. They import functions from `daily_briefing.py` so the logic stays in one place.
 - **If anything fails fatally,** post a Slack DM via the existing `alert_slack_failure` helper + raise. Don't try to recover silently — better to crash visibly than ship a half-broken briefing.
-
-## TODOs before this is production-ready
-
-- [ ] Helper scripts `pull_inputs.py`, `render_artifacts.py`, `persist_state.py`, `deliver.py` need to be written (skeletons exist alongside this skill; flesh out the imports + arg parsing)
-- [ ] Verify Bash tool can run all the helper scripts in your session's environment
-- [ ] Decide whether to keep the Haiku dedup call (separate API) or fold dedup into your own reasoning (zero-cost but uses your context)
-- [ ] Test locally with `claude -p "/daily-briefing"` and compare output to today's Python-generated briefing
-- [ ] Set up Windows Task Scheduler entry once output quality is validated
 
 ## When this skill is invoked manually for testing
 
