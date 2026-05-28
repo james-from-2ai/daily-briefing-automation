@@ -1,15 +1,17 @@
 name: Daily briefing
 
-# Cron is in UTC. 7:30 AM America/New_York is:
-#   EST (winter): 12:30 UTC
-#   EDT (summer): 11:30 UTC
-# GitHub's scheduled crons can fire 5–15 min late — accept "by 7:45 AM ET".
-# Both fire to cover DST; the script is idempotent within a day (state-sheet
-# dedup, ack/vote rows are append-only) so the redundant fire is harmless.
+# Daily auto-cron DISABLED as of 2026-05-27 — the primary driver is now the
+# Windows Task Scheduler entry on James's laptop firing the cowork plugin
+# (synthesis runs in agent reasoning under Claude.ai Max subscription
+# rather than ~14 Anthropic API calls). This workflow stays in the repo
+# as a manual emergency fallback (workflow_dispatch) for mornings the
+# laptop is off/traveling/dead-battery. To re-enable the auto-cron:
+# uncomment the schedule block below. (EDT=12:30 UTC, EST=12:30 UTC; both
+# fire to cover DST; the script is idempotent within a day.)
 on:
-  schedule:
-    - cron: "30 11 * * *"   # 7:30 AM EDT (summer)
-    - cron: "30 12 * * *"   # 7:30 AM EST (winter)
+  # schedule:
+  #   - cron: "30 11 * * *"   # 7:30 AM EDT (summer)
+  #   - cron: "30 12 * * *"   # 7:30 AM EST (winter)
   workflow_dispatch: {}     # manual "Run workflow" button in the GitHub UI
 
 # Required for deploy-pages to publish + for the briefing's
