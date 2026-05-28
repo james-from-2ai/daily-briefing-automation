@@ -47,6 +47,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
+from googleapiclient.errors import HttpError
 import io
 
 import anthropic
@@ -742,10 +743,19 @@ def write_state(creds, items: list[dict]):
 
 
 def read_acks(creds) -> list[dict]:
+    # IMPORTANT: must qualify the tab. A bare "A:Z" defaults to the FIRST
+    # tab (Sheet1 = the state tab), so this silently read state rows instead
+    # of acks — meaning every "mark done"/"mark seen" click was recorded by
+    # Apps Script but never applied (apply_acks_to_state matched nothing, so
+    # items never cleared and carryover kept re-surfacing them). Read the
+    # real `acks` tab. (read_votes/read_user_sources already qualify theirs.)
     if not ACK_SHEET_ID:
         return []
-    resp = _sheets(creds).spreadsheets().values().get(
-        spreadsheetId=ACK_SHEET_ID, range="A:Z").execute()
+    try:
+        resp = _sheets(creds).spreadsheets().values().get(
+            spreadsheetId=ACK_SHEET_ID, range="acks!A:Z").execute()
+    except Exception:
+        return []   # tab doesn't exist yet
     rows = resp.get("values", [])
     if not rows:
         return []
@@ -3201,17 +3211,41 @@ def save_dashboard(html: str, slug: str) -> Path:
 # ---------- Deliver ----------
 
 def upload_drive_doc(creds, html: str, today: dt.date) -> str:
-    """Convert the HTML to a Google Doc, upload to Drive, return webViewLink."""
+    """Convert the HTML to a Google Doc, upload to Drive, return webViewLink.
+
+    Retries on transient 5xx (Drive periodically returns 500 internalError
+    on upload). Returns "" if it ultimately fails — callers treat the Drive
+    doc as a nice-to-have, NOT load-bearing: a flaky Google response must
+    not sink the whole briefing (email + Slack + dashboard still ship)."""
     svc = build("drive", "v3", credentials=creds, cache_discovery=False)
     metadata = {
         "name": f"Daily Briefing — {today.isoformat()}",
         "mimeType": "application/vnd.google-apps.document",
         "parents": [BRIEFINGS_DRIVE_FOLDER_ID],
     }
-    media = MediaIoBaseUpload(io.BytesIO(html.encode("utf-8")), mimetype="text/html")
-    f = svc.files().create(body=metadata, media_body=media,
-                           fields="id,webViewLink").execute()
-    return f["webViewLink"]
+    last_err = None
+    for attempt in range(4):
+        try:
+            media = MediaIoBaseUpload(io.BytesIO(html.encode("utf-8")),
+                                      mimetype="text/html")
+            f = svc.files().create(body=metadata, media_body=media,
+                                   fields="id,webViewLink").execute()
+            return f["webViewLink"]
+        except HttpError as e:
+            last_err = e
+            status = getattr(getattr(e, "resp", None), "status", None)
+            if status and 500 <= int(status) < 600 and attempt < 3:
+                wait = 2 ** attempt   # 1s, 2s, 4s
+                print(f"[drive] {status} on upload (attempt {attempt+1}/4), "
+                      f"retrying in {wait}s…")
+                time.sleep(wait)
+                continue
+            break
+        except Exception as e:
+            last_err = e
+            break
+    print(f"[drive] upload failed, continuing without Drive doc: {last_err}")
+    return ""
 
 
 def send_gmail(creds, html: str, today: dt.date):
@@ -3243,12 +3277,17 @@ def post_slack(doc_link: str, today: dt.date, carry_count: int = 0,
         f"(click 👍/👎, leave comments, send items to tasks)"
         if dashboard_url else ""
     )
+    # Drive doc is best-effort (see upload_drive_doc) — if it failed,
+    # doc_link is "" and we just point at the inbox instead of emitting a
+    # malformed <|open the Doc> link.
+    inbox_line = (f"In your inbox + Drive: <{doc_link}|open the Doc>"
+                  if doc_link else "In your inbox.")
     try:
         client.chat_postMessage(
             channel=SLACK_USER_ID,
             text=(
                 f":sunrise: *Daily briefing — {today.strftime(f'%a %b {_NO_PAD_DAY}')}*\n"
-                f"In your inbox + Drive: <{doc_link}|open the Doc>"
+                f"{inbox_line}"
                 f"{dashboard_line}{pending}{ack}"
             ),
         )

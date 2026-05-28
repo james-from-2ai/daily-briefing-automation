@@ -63,6 +63,10 @@ Read the JSON. **Do not summarise it — you'll use the raw fields below.**
 
 The Python version derives a "prefs_digest" from the `votes` and `recent_feedback` fields and threads it through most synthesis calls. You should do the same: skim `recent_feedback` + the most recent ~30 votes, identify which kinds of items James rated 👍 (4-5) vs 👎 (1-2), and treat that as a binding bias on your picks. Keep this digest in your working context — you'll reference it across multiple sections.
 
+### Dismissed items — DO NOT re-surface (binding)
+
+The inputs JSON includes a `recently_dismissed` list: items James has already marked done or acknowledged via the dashboard. **This is binding.** When synthesizing priorities, decisions-needed, slip flags, inbox, and 2AI ideas, check each item you're about to surface against this list. If it matches something already dismissed — even with different wording (e.g. "Invite Tessa to retreat" ≡ "Should we invite Tessa?") — **suppress it**, UNLESS the underlying situation has materially changed since dismissal (a new deadline, a new blocker, a reply that reopens it). When in doubt, leave it out — re-surfacing dismissed items is the single most annoying failure mode of this briefing. The carryover machinery (persist_state.py) handles state-level suppression by key, but it can't catch reworded re-derivations from source inputs — that's your job here.
+
 ## Step 2 — Synthesize each section (THIS IS YOUR REASONING WORK)
 
 For each applicable section below, *think* through the output. The instruction blocks are the system prompts the Python version used — treat each as your own instructions for that step. Output each section as an HTML fragment (no `<html>`/`<body>` wrapper) and write it to the indicated `/tmp/section-*.html` file. Empty sections: write an empty file (or just don't write — persist_state.py handles missing files).

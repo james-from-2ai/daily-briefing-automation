@@ -28,14 +28,35 @@ sys.path.insert(0, str(REPO_ROOT))
 # These imports are the SAME pull functions the Python version uses —
 # OAuth, sheet reads, calendar API, etc. We're just calling them from
 # the agent's orchestration layer instead of from main().
+import re  # noqa: E402
+
 from daily_briefing import (  # noqa: E402
     google_creds, pull_calendar, pull_drive_recent, pull_1on1_recent_entries,
     pull_inbox_signals, pull_news_topics_sheet, pull_recent_feedback,
     pull_tasks_json, pull_journal_recent, pull_weather, pull_stocks,
     pull_program_area_corpus, read_state, read_acks, read_votes,
-    read_user_sources,
+    read_user_sources, apply_acks_to_state,
     ONEONONE_DOCS, FUNDER_WATCHLIST, PEER_PUBLISHERS, EVIDENCE_STREAMS,
 )
+
+
+def _recently_dismissed(state: list[dict], acks: list[dict]) -> list[dict]:
+    """Items James has marked done / acknowledged — the agent must NOT
+    re-surface these unless the underlying situation has materially changed.
+    Returns compact {section, text, status} dicts."""
+    applied = apply_acks_to_state([dict(r) for r in state], acks)
+    out = []
+    for r in applied:
+        if r.get("status") == "done" or r.get("acknowledged_on"):
+            plain = re.sub(r"\s+", " ",
+                           re.sub(r"<[^>]+>", " ", r.get("text_html", ""))).strip()
+            if plain:
+                out.append({
+                    "section": r.get("section", ""),
+                    "text": plain[:200],
+                    "status": "done" if r.get("status") == "done" else "acknowledged",
+                })
+    return out
 
 
 def main() -> None:
@@ -46,6 +67,9 @@ def main() -> None:
 
     today = dt.date.today()
     creds = google_creds()
+
+    state = read_state(creds)
+    acks = read_acks(creds)
 
     # TODO: this is a stub assembly. Real version needs error handling +
     # graceful degradation (one failed pull shouldn't sink the whole run).
@@ -60,8 +84,11 @@ def main() -> None:
         "inbox_signals": pull_inbox_signals(creds),
         "news_topics_text": pull_news_topics_sheet(creds),
         "recent_feedback": pull_recent_feedback(creds),
-        "state": read_state(creds),
-        "acks": read_acks(creds),
+        "state": state,
+        "acks": acks,
+        # Items James has already dismissed/acknowledged — the agent must
+        # not re-surface these unless the situation has materially changed.
+        "recently_dismissed": _recently_dismissed(state, acks),
         "votes": read_votes(creds),
         "user_sources": read_user_sources(creds),
         "tasks_json": pull_tasks_json(),
