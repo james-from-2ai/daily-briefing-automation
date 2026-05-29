@@ -2958,6 +2958,48 @@ def render_html(today: dt.date, prioritization: str, news: str,
 # contains a per-day URL pointing here.
 
 
+def redirect_webhooks_to_dashboard(html: str, dashboard_url: str) -> str:
+    """Rewrite action-button webhook hrefs to point at the dashboard.
+
+    Email clients (Gmail/Outlook) strip JavaScript, so the per-item
+    action widgets in the email could only be plain <a> links to the
+    Apps Script webhook. Those open a new tab to script.google.com,
+    which (a) feels broken (errors when you're logged into multiple
+    Google accounts and Chrome opens /u/1/ instead of /u/0/), and (b)
+    can't surface the richer dashboard interactions (comment, etc).
+
+    Solution: in the EMAIL version, rewrite every webhook href to the
+    dashboard URL, preserving an #item-<key> anchor where one is in
+    the original query string. Clicking from the email lands you on
+    the dashboard, scrolled to the right item, where everything works.
+
+    The DASHBOARD version still uses webhook hrefs unchanged — the
+    dashboard's JS overlay intercepts clicks and fires the webhook
+    directly via fetch(), so it relies on the original hrefs.
+    """
+    if not dashboard_url:
+        return html
+
+    webhook_href = re.compile(
+        r'href="(' + re.escape(ACK_WEBHOOK_URL) + r'\?[^"]+)"',
+        re.I,
+    )
+
+    def replace(m):
+        url = m.group(1)
+        # Extract `key=...` or `keys=...` from the query string so the
+        # email click lands on the right anchor in the dashboard.
+        anchor = ""
+        key_match = re.search(r'[?&](?:key|keys)=([^&]+)', url)
+        if key_match:
+            first_key = key_match.group(1).split(",")[0].split("%2C")[0]
+            if first_key:
+                anchor = f"#item-{first_key}"
+        return f'href="{dashboard_url}{anchor}"'
+
+    return webhook_href.sub(replace, html)
+
+
 def make_interactive_dashboard(email_html: str, dashboard_url: str,
                                webhook_url: str, today: dt.date) -> str:
     """Convert the email HTML into an interactive dashboard variant.
@@ -3623,6 +3665,8 @@ def main():
     print(f"    saved {out_path}")
 
     # ---- generate interactive dashboard variant for Pages ----
+    # The dashboard variant keeps the original webhook hrefs — its JS
+    # overlay intercepts clicks and fires the webhook via fetch().
     print("  generating interactive dashboard…")
     dashboard_html = make_interactive_dashboard(
         html, dashboard_url, ACK_WEBHOOK_URL, today,
@@ -3630,6 +3674,18 @@ def main():
     dashboard_path = save_dashboard(dashboard_html, dashboard_slug)
     print(f"    {dashboard_url}")
     print(f"    {dashboard_path}")
+
+    # ---- redirect action buttons to dashboard for the EMAIL variant ----
+    # Email clients strip JS, so per-item buttons in the email can only
+    # be plain links. Pointing them at the webhook directly causes
+    # "Sorry, unable to open" errors when Chrome opens them in the
+    # wrong Google account (/u/1/ instead of /u/0/). Instead, the
+    # email's per-item buttons link to the dashboard with an
+    # #item-<key> anchor — one extra click, but always works.
+    email_html_for_send = redirect_webhooks_to_dashboard(html, dashboard_url)
+    # Overwrite the saved local output with the email-flavoured copy
+    # so manual archival reflects what was actually sent.
+    out_path.write_text(email_html_for_send, encoding="utf-8")
 
     print("  persisting state…")
     write_state(creds, state)
@@ -3642,11 +3698,11 @@ def main():
         append_source_rows(creds, all_source_proposals)
 
     print("  uploading to Drive…")
-    doc_link = upload_drive_doc(creds, html, today)
+    doc_link = upload_drive_doc(creds, email_html_for_send, today)
     print(f"    {doc_link}")
 
     print("  sending email…")
-    send_gmail(creds, html, today)
+    send_gmail(creds, email_html_for_send, today)
 
     print("  posting to Slack…")
     post_slack(doc_link, today, carry_count=len(carryover),

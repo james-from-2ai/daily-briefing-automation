@@ -28,6 +28,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from daily_briefing import (  # noqa: E402
     render_html, make_interactive_dashboard, verify_urls, save_dashboard,
+    redirect_webhooks_to_dashboard,
     ACK_WEBHOOK_URL, GITHUB_PAGES_BASE,
 )
 
@@ -96,12 +97,18 @@ def main() -> None:
     if bad_urls:
         print(f"stripped {len(bad_urls)} dead link(s)", file=sys.stderr)
 
+    # Dashboard variant: keep webhook hrefs (JS overlay intercepts clicks).
     dashboard_html = make_interactive_dashboard(
         cleaned_email, dashboard_url, ACK_WEBHOOK_URL, today,
     )
     save_dashboard(dashboard_html, dashboard_slug)
 
-    Path(args.out_email).write_text(cleaned_email, encoding="utf-8")
+    # Email variant: rewrite webhook hrefs to dashboard anchors so the
+    # email's per-item buttons land on the dashboard (no more "Sorry,
+    # unable to open" Apps Script errors from /u/1/ multi-account).
+    email_for_send = redirect_webhooks_to_dashboard(cleaned_email, dashboard_url)
+
+    Path(args.out_email).write_text(email_for_send, encoding="utf-8")
     Path(args.out_dashboard).write_text(dashboard_html, encoding="utf-8")
     Path(args.dashboard_url_out).write_text(dashboard_url, encoding="utf-8")
     print(f"email → {args.out_email}", file=sys.stderr)
