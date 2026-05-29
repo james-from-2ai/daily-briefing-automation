@@ -62,27 +62,33 @@ if (-not $ClaudeExe) {
 }
 Write-Log "claude.exe: $ClaudeExe"
 
-# Load the skill prompt verbatim and feed it to claude.exe in headless
-# mode. Bypassing permissions because the cron run is unattended and
-# needs to write files, run python helpers, push to git, etc.
-if (-not (Test-Path $SkillPath)) {
-    Alert-Failure "skill prompt missing: $SkillPath"
-    exit 3
-}
-$Prompt = Get-Content -Path $SkillPath -Raw -Encoding UTF8
-Write-Log ("skill prompt loaded ({0} chars)" -f $Prompt.Length)
-
-# Run claude. The 34KB skill prompt is TOO LARGE to pass as a CLI
-# argument on Windows (CreateProcess command-line limit is ~32KB, you
-# get "The filename or extension is too long"). Pipe it via stdin
-# instead — `claude -p` with no prompt arg reads from stdin.
+# Invoke the skill via its proper slash command. The plugin lives in
+# the repo (not installed at ~/.claude/plugins/), so --plugin-dir
+# points claude at it for this session only. claude discovers the
+# /daily-briefing command via .claude-plugin/plugin.json + commands/.
+#
+# IMPORTANT: do NOT pipe the skill markdown via stdin — that worked
+# but pre-loaded 34KB into the prompt with no caching, and "Unknown
+# command: /daily-briefing" was the symptom when we tried this before
+# restructuring the plugin to Claude Code's expected format
+# (.claude-plugin/plugin.json + commands/ instead of manifest.json +
+# skills/).
 #
 # --dangerously-skip-permissions is required for unattended runs (the
 # skill calls python helpers that write files, hit Google APIs, push
 # git, etc). NOT --permission-mode (that flag doesn't exist in this
-# CLI — passing it silently exited claude in <10s with no briefing).
-# All streams to the log.
-$Prompt | & $ClaudeExe -p --dangerously-skip-permissions *>> $LogFile
+# CLI; passing it silently exited claude in <10s).
+#
+# Pipe '' to stdin to suppress the harmless "no stdin data" warning.
+# All claude streams append to the log.
+$PluginDir = Join-Path $RepoRoot 'plugins\daily-briefing-cowork'
+if (-not (Test-Path (Join-Path $PluginDir '.claude-plugin\plugin.json'))) {
+    Alert-Failure "plugin manifest missing: $PluginDir\.claude-plugin\plugin.json"
+    exit 3
+}
+Write-Log "plugin dir: $PluginDir"
+
+'' | & $ClaudeExe -p "/daily-briefing" --plugin-dir $PluginDir --dangerously-skip-permissions *>> $LogFile
 $claudeExit = $LASTEXITCODE
 
 "=== cowork briefing run finished $(Get-Date -Format 'u') (exit=$claudeExit) ===" |

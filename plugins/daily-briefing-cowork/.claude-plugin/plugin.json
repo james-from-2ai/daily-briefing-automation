@@ -1,0 +1,8 @@
+{
+  "name": "daily-briefing-cowork",
+  "description": "Daily briefing as a Claude Code session — synthesis runs in the agent's reasoning (Claude.ai subscription) instead of via 14 anthropic.Anthropic() API calls. I/O delegated to thin Python helpers that reuse daily_briefing.py's existing functions.",
+  "author": {
+    "name": "James Bedford",
+    "email": "james@aiaccessinitiative.org"
+  }
+}
