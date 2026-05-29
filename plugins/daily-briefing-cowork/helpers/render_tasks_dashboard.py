@@ -84,23 +84,24 @@ def _render_task(task: dict) -> str:
         pass
 
     return f'''
-<div id="task-{_esc(task.get('id', ''))}" style="
+<div id="task-{_esc(task.get('id', ''))}" class="task-card" data-task-id="{_esc(task.get('id', ''))}" style="
     border-left:4px solid {border}; background:{bg};
     padding:10px 14px; margin:8px 0; border-radius:4px;
     font-size:14px; line-height:1.45;">
   <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;">
-    <div style="font-weight:600;color:#111827;flex:1;">{title}</div>
+    <div class="task-title" style="font-weight:600;color:#111827;flex:1;">{title}</div>
     <div style="font-size:11px;color:{border};text-transform:uppercase;
          letter-spacing:0.7px;font-weight:700;">{_esc(urg)}</div>
   </div>
-  <div style="color:#374151;font-size:12.5px;margin-top:4px;">{why}</div>
+  <div class="task-why" style="color:#374151;font-size:12.5px;margin-top:4px;">{why}</div>
   <div style="margin-top:8px;font-size:11.5px;color:#6b7280;">
     <span>{_esc(domain)}</span>
     {age_days}
     {blocked_label}
-    <a href="{_ack_url(task)}" target="_blank"
+    <a href="#" class="mark-done"
+       data-webhook-url="{_ack_url(task)}"
        style="float:right;color:{border};text-decoration:none;
-              border-bottom:1px dotted {border};font-weight:500;">
+              border-bottom:1px dotted {border};font-weight:500;cursor:pointer;">
       ✅ mark done
     </a>
   </div>
@@ -235,6 +236,17 @@ def render(tasks_data: dict, proposals: list[dict]) -> str:
   a {{ color: #0e7490; }}
   details > summary {{ list-style: none; }}
   details > summary::-webkit-details-marker {{ display: none; }}
+  /* Inline-done state: applied client-side when "mark done" is clicked. */
+  .task-card.is-done {{ opacity: 0.55; }}
+  .task-card.is-done .task-title,
+  .task-card.is-done .task-why {{ text-decoration: line-through; }}
+  .task-card.is-done .mark-done {{ pointer-events: none; opacity: 0.5; }}
+  #toast {{ position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: #111827; color: white; padding: 10px 18px;
+            border-radius: 999px; font-size: 13px; opacity: 0;
+            transition: opacity 0.2s; pointer-events: none; z-index: 9999; }}
+  #toast.show {{ opacity: 1; }}
+  #toast.err  {{ background: #b91c1c; }}
 </style>
 </head>
 <body>
@@ -256,6 +268,43 @@ def render(tasks_data: dict, proposals: list[dict]) -> str:
     briefing dashboard feedback. Source of truth: tasks.json
     ({_esc(str(TASKS_JSON_PATH))[:80]}…).
   </footer>
+  <div id="toast"></div>
+  <script>
+    // Intercept "mark done" clicks: fire the Apps Script webhook silently
+    // in the background (no-cors fetch, no response needed), mark the
+    // task visually done on the page. Never opens a new tab.
+    // Next 2-hour cron picks up the ack and moves the task to completed
+    // in tasks.json.
+    (function () {{
+      function toast(msg, isErr) {{
+        var t = document.getElementById('toast');
+        if (!t) return;
+        t.textContent = msg;
+        t.className = isErr ? 'show err' : 'show';
+        setTimeout(function () {{ t.className = ''; }}, 2400);
+      }}
+      document.querySelectorAll('a.mark-done').forEach(function (a) {{
+        a.addEventListener('click', function (e) {{
+          e.preventDefault();
+          var url = a.getAttribute('data-webhook-url');
+          if (!url || url === '#') {{
+            toast('No webhook configured', true);
+            return;
+          }}
+          var card = a.closest('.task-card');
+          // Immediate visual feedback — don't wait for the fetch.
+          if (card) card.classList.add('is-done');
+          toast('✅ marked done — syncs to tasks.json next refresh');
+          // Fire and forget (no-cors so the Apps Script auto-close page
+          // doesn't even render; we never read the response).
+          fetch(url, {{ mode: 'no-cors', credentials: 'omit' }}).catch(function () {{
+            toast('Webhook may have failed — check next refresh', true);
+            if (card) card.classList.remove('is-done');
+          }});
+        }});
+      }});
+    }})();
+  </script>
 </body>
 </html>
 '''
