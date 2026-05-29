@@ -220,12 +220,19 @@ def render(tasks_data: dict, proposals: list[dict]) -> str:
         if not active else ""
     )
 
+    # Build-stamp for cache-busting verification. If James sees this
+    # ID on the page, he's on the freshly-deployed version, not a
+    # stale browser-cached copy.
+    build_id = now.strftime("%Y%m%d-%H%M%S") + "Z"
     return f'''<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Live tasks — {len(active)} active</title>
 <style>
   body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
@@ -267,6 +274,8 @@ def render(tasks_data: dict, proposals: list[dict]) -> str:
     Auto-refreshes every 2 hours from local tasks.json +
     briefing dashboard feedback. Source of truth: tasks.json
     ({_esc(str(TASKS_JSON_PATH))[:80]}…).
+    <br><span style="font-family:monospace;">build {build_id}</span>
+    · inline-mark-done JS active
   </footer>
   <div id="toast"></div>
   <script>
