@@ -62,33 +62,34 @@ if (-not $ClaudeExe) {
 }
 Write-Log "claude.exe: $ClaudeExe"
 
-# Invoke the skill via its proper slash command. The plugin lives in
-# the repo (not installed at ~/.claude/plugins/), so --plugin-dir
-# points claude at it for this session only. claude discovers the
-# /daily-briefing command via .claude-plugin/plugin.json + commands/.
+# Invoke the skill by piping its markdown body via stdin.
 #
-# IMPORTANT: do NOT pipe the skill markdown via stdin — that worked
-# but pre-loaded 34KB into the prompt with no caching, and "Unknown
-# command: /daily-briefing" was the symptom when we tried this before
-# restructuring the plugin to Claude Code's expected format
-# (.claude-plugin/plugin.json + commands/ instead of manifest.json +
-# skills/).
+# Why not `claude -p "/daily-briefing" --plugin-dir <path>` (the
+# "proper" slash-command path): in headless -p mode that combination
+# resolves as "Unknown command: /daily-briefing" — `--plugin-dir`
+# doesn't actually register commands in this CLI version even with a
+# valid .claude-plugin/plugin.json + commands/ layout. The stdin-pipe
+# approach has been verified to produce email + Slack + Drive doc
+# end-to-end (1119 run on 5/29 took ~14 min from start to delivery).
+#
+# Why not `-p <prompt>` with the prompt as an arg: the 34KB skill
+# body exceeds Windows CreateProcess's command-line limit, producing
+# "The filename or extension is too long".
 #
 # --dangerously-skip-permissions is required for unattended runs (the
 # skill calls python helpers that write files, hit Google APIs, push
 # git, etc). NOT --permission-mode (that flag doesn't exist in this
 # CLI; passing it silently exited claude in <10s).
 #
-# Pipe '' to stdin to suppress the harmless "no stdin data" warning.
 # All claude streams append to the log.
-$PluginDir = Join-Path $RepoRoot 'plugins\daily-briefing-cowork'
-if (-not (Test-Path (Join-Path $PluginDir '.claude-plugin\plugin.json'))) {
-    Alert-Failure "plugin manifest missing: $PluginDir\.claude-plugin\plugin.json"
+if (-not (Test-Path $SkillPath)) {
+    Alert-Failure "skill prompt missing: $SkillPath"
     exit 3
 }
-Write-Log "plugin dir: $PluginDir"
+$Prompt = Get-Content -Path $SkillPath -Raw -Encoding UTF8
+Write-Log ("skill prompt loaded ({0} chars)" -f $Prompt.Length)
 
-'' | & $ClaudeExe -p "/daily-briefing" --plugin-dir $PluginDir --dangerously-skip-permissions *>> $LogFile
+$Prompt | & $ClaudeExe -p --dangerously-skip-permissions *>> $LogFile
 $claudeExit = $LASTEXITCODE
 
 "=== cowork briefing run finished $(Get-Date -Format 'u') (exit=$claudeExit) ===" |

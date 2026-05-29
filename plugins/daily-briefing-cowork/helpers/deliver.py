@@ -60,10 +60,29 @@ def main() -> None:
 
     # 4. Push dashboard to GitHub (triggers Pages deploy)
     if not args.skip_pages_push:
-        # The dashboard HTML is already written to repo's docs/ dir by
-        # save_dashboard() during render_artifacts. Now commit + push.
+        # save_dashboard() during render_artifacts wrote
+        # docs/<today>-<uuid>.html. docs/*.html is in .gitignore (so
+        # stray local renders don't get committed), so a plain
+        # `git add docs/` would SKIP it — that was the silent bug
+        # behind every "dashboard URL 404s" report. Force-add today's
+        # dashboard file(s) explicitly so they actually reach the
+        # remote and the deploy-pages workflow has something to publish.
         cwd = str(REPO_ROOT)
+        today_dashboards = list((REPO_ROOT / "docs").glob(
+            f"{today.isoformat()}-*.html"
+        ))
+        if not today_dashboards:
+            print(f"  WARNING: no docs/{today.isoformat()}-*.html — "
+                  f"render step didn't write a dashboard?", file=sys.stderr)
         try:
+            # Force-add the specific dashboard files (-f overrides
+            # .gitignore for these paths only — won't add any other
+            # stray HTML).
+            for p in today_dashboards:
+                subprocess.run(["git", "add", "-f", str(p.relative_to(REPO_ROOT))],
+                               cwd=cwd, check=True)
+            # Also pick up any non-ignored docs/ changes (robots.txt,
+            # index.html updates) the regular way.
             subprocess.run(["git", "add", "docs/"], cwd=cwd, check=True)
             subprocess.run([
                 "git", "commit", "-m",
@@ -71,7 +90,8 @@ def main() -> None:
                 "--allow-empty",
             ], cwd=cwd, check=True)
             subprocess.run(["git", "push"], cwd=cwd, check=True)
-            print("  GitHub Pages: pushed", file=sys.stderr)
+            print(f"  GitHub Pages: pushed "
+                  f"{len(today_dashboards)} dashboard file(s)", file=sys.stderr)
         except subprocess.CalledProcessError as e:
             print(f"  GitHub Pages push FAILED: {e}", file=sys.stderr)
             raise
