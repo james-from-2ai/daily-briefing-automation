@@ -1,0 +1,38 @@
+name: Deploy dashboard to Pages
+
+# Fires whenever the cowork agent pushes a new dashboard to `docs/`.
+# This is the dedicated Pages-deploy path that lets us keep the main
+# briefing workflow's cron disabled — without this, pushes to docs/
+# would land in main but never publish (Pages is configured for
+# GitHub-Actions deployment, not branch-deploy).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+  workflow_dispatch: {}     # manual fire from the UI if needed
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docs
+      - id: deployment
+        uses: actions/deploy-pages@v4
