@@ -2784,7 +2784,12 @@ def render_html(today: dt.date, prioritization: str, news: str,
         f'Open in-page version →</a>'
         f'<div style="font-size:12px;color:#475569;margin-top:4px;">'
         f"Click 👍/👎, leave comments, and send items to your task list "
-        f"— all in one tab, no popups.</div></div>"
+        f"— all in one tab, no popups.</div>"
+        f'<div style="font-size:12px;color:#475569;margin-top:6px;">'
+        f'📋 <a href="{GITHUB_PAGES_BASE}/tasks-live.html" '
+        f'style="color:#1e40af;font-weight:600;">Live tasks dashboard →</a> '
+        f"(refreshes every 2h from your task list + dashboard feedback)"
+        f"</div></div>"
         if dashboard_url else ""
     )
 
