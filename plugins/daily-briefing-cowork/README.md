@@ -1,200 +1,199 @@
-# daily-briefing-cowork plugin (Phase 1 scaffold)
+# daily-briefing-cowork plugin
 
-Cowork version of the daily briefing. Synthesis runs in a Claude Code
-agent's own reasoning context (billed under Claude.ai subscription)
-instead of via `anthropic.Anthropic()` API calls in `daily_briefing.py`.
+Local-laptop version of the 2AI daily briefing. Synthesis runs in a
+Claude Code session's reasoning (billed against your Claude.ai
+subscription) instead of via the ~14 `anthropic.Anthropic()` API
+calls that `daily_briefing.py` made on GitHub Actions. Cost drops
+from ~$4/day to ~$0.02/day (Haiku dedup only).
+
+Also includes a **live tasks dashboard** that refreshes every 2 hours
+on a separate, pure-Python cron — no LLM in that loop.
 
 ## Status
 
-✅ **Phase 1 complete (pending production cron-fire).** All helpers
-wired up and parsing. End-to-end plumbing smoke-tested against live
-APIs. Awaiting first real Windows-Task-Scheduler run for quality
-comparison against the Python pipeline.
+✅ **Phase 1 in production.** Both crons firing daily on Windows Task
+Scheduler:
+- `DailyBriefingCowork` — 07:30 daily, produces email + Slack +
+  Drive Doc + GitHub Pages dashboard.
+- `TasksLiveRefresh` — every 2 hours from 08:00 to 22:00, refreshes
+  `tasks-live.html` from `tasks.json` + briefing feedback.
+
+🔜 **Phase 2 prereqs pending James.** See `PHASE2_SETUP.md` —
+scheduled-remote-agent variant unblocks once MCP connectors,
+tasks.json bridge, and GitHub PAT are configured.
 
 ## Architecture
 
-```
-Windows Task Scheduler (or manual invoke)
-  ↓
-  claude -p "/daily-briefing"
-  ↓
-skills/daily-briefing.md (agent reads instructions)
-  ↓
-  python helpers/pull_inputs.py        → JSON of all inputs
-  agent synthesizes each section
-  python helpers/render_artifacts.py   → email.html + dashboard.html
-  python helpers/persist_state.py      → state-sheet updates  [TODO]
-  python helpers/deliver.py            → Drive + Gmail + Slack + git push
-  ↓
-artifacts live, agent exits
+### Morning briefing (07:30 daily)
 
-(later, manually)
-  claude /daily-briefing-followup
+```
+Windows Task Scheduler
   ↓
-skills/daily-briefing-followup.md
+run-cowork-briefing.ps1
   ↓
-  python helpers/load_today_context.py  [TODO]
-  agent walks through items interactively
-  per-action helpers (send_reply.py, promote_task.py, etc.)  [TODO]
+  pipes commands/daily-briefing.md → claude.exe -p --dangerously-skip-permissions
+  ↓
+claude (headless) follows the skill prompt:
+  1. helpers/pull_inputs.py       → /tmp/briefing-inputs.json
+  2. agent synthesizes each section (no API calls)
+  3. helpers/persist_state.py     → annotate + dedup + carryover + Sheets write
+  4. helpers/render_artifacts.py  → email.html + dashboard.html
+  5. helpers/deliver.py           → Drive + Gmail + Slack + git push
+  ↓
+Pages workflow auto-deploys docs/*.html → dashboard URL goes live
+```
+
+### Live tasks dashboard (every 2h, pure Python)
+
+```
+Windows Task Scheduler
+  ↓
+run-tasks-live.ps1   (no claude.exe — fully deterministic)
+  ↓
+  1. helpers/sync_feedback_to_tasks.py → tasks.json
+     · accept:K  → promote suggestion to active task
+     · reject:K  → mark proposal rejected (tasks.json untouched)
+     · bare K    → mark matching task done
+  2. helpers/render_tasks_dashboard.py → docs/tasks-live.html
+  3. git add -f docs/tasks-live.html + commit + push
+  ↓
+deploy-pages.yml workflow publishes → tasks-live URL refreshes
+```
+
+### Followup (manual, after morning briefing)
+
+```
+claude /daily-briefing-followup    (manual invocation)
+  ↓
+commands/daily-briefing-followup.md instructs:
+  1. helpers/load_today_context.py → today's state + acks/votes/comments
+  2. agent walks through items interactively
+  3. per-action helpers: send_reply.py, promote_task.py, add_comment.py
 ```
 
 ## File layout
 
 ```
 plugins/daily-briefing-cowork/
-├── manifest.json              ← plugin metadata, skill registry
-├── README.md                  ← you are here
-├── run-cowork-briefing.ps1    ← PowerShell wrapper for Task Scheduler
-├── skills/
-│   ├── daily-briefing.md            ← autonomous run prompt
+├── .claude-plugin/
+│   └── plugin.json                  ← Claude Code plugin manifest
+├── README.md                        ← you are here
+├── PHASE2_SETUP.md                  ← scheduled-remote-agent runbook
+├── run-cowork-briefing.ps1          ← 07:30 daily briefing wrapper
+├── run-tasks-live.ps1               ← every-2h tasks dashboard wrapper
+├── commands/
+│   ├── daily-briefing.md            ← morning briefing skill prompt
 │   └── daily-briefing-followup.md   ← interactive Q&A prompt
 ├── helpers/
-│   ├── pull_inputs.py         ← reads calendar/Drive/inbox/state into JSON
-│   ├── persist_state.py       ← annotates section HTMLs + dedup + carryover + Sheets write
-│   ├── render_artifacts.py    ← renders email.html + dashboard.html
-│   ├── deliver.py             ← Drive + Gmail + Slack + git push
-│   ├── load_today_context.py  ← (followup) state filtered to today + acks/votes/comments
-│   ├── send_reply.py          ← (followup) Gmail in-thread reply
-│   ├── promote_task.py        ← (followup) writes to task_proposals via webhook
-│   └── add_comment.py         ← (followup) writes to comments tab via webhook
-└── logs/                      ← per-run log, auto-pruned after 30 days
+│   ├── pull_inputs.py               ← briefing: read all upstream sources → JSON
+│   ├── persist_state.py             ← briefing: annotate + dedup + state-sheet
+│   ├── render_artifacts.py          ← briefing: email + dashboard HTML
+│   ├── deliver.py                   ← briefing: Drive + Gmail + Slack + push
+│   ├── sync_feedback_to_tasks.py    ← tasks-live: Sheet → tasks.json sync
+│   ├── render_tasks_dashboard.py    ← tasks-live: docs/tasks-live.html
+│   ├── load_today_context.py        ← followup: today-filtered state
+│   ├── send_reply.py                ← followup: Gmail in-thread reply
+│   ├── promote_task.py              ← followup: write to task_proposals
+│   └── add_comment.py               ← followup: write to comments tab
+└── logs/                            ← per-run logs, auto-pruned after 30 days
 ```
 
-## How to test (when the scaffold is fleshed out)
+All helpers import from `../daily_briefing.py` at the repo root —
+that file remains the shared engine (OAuth flow, Sheet readers,
+HTML rendering, state-sheet schema). The cowork helpers are thin
+orchestrators on top.
 
-Local manual test:
-```bash
-cd /path/to/daily-briefing-automation
-claude -p "/daily-briefing"
-```
+## Where to edit configuration
 
-Inspect: did the email arrive, did the dashboard URL work, did the
-state-sheet rows look right? Compare against the same day's Python
-output for parity.
+| What | Where | Edit how |
+|---|---|---|
+| News topics (daily picker source) | Google Sheet `14KtogU6W-eRD-S6yE48w-XPTGuhyqEa32kdGYAa-BYU` | Open the sheet, edit rows |
+| Funder watchlist (every-other-day) | `daily_briefing.py` `FUNDER_WATCHLIST` (line ~132) | Code edit |
+| Peer publishers (monthly landscape) | `daily_briefing.py` `PEER_PUBLISHERS` (line ~185) | Code edit |
+| Accepted news sources | `sources` tab on state sheet | Briefing dashboard ✅ / ❌ buttons |
+| 1:1 docs (Katie, Sarah) | `daily_briefing.py` `ONEONONE_DOCS` (line ~63) | Code edit |
+| Apps Script webhook URL | `daily_briefing.py` `ACK_WEBHOOK_URL` (line ~103) | Code edit |
+| State sheet ID | `daily_briefing.py` `STATE_SHEET_ID` (line ~101) | Code edit |
+| tasks.json location | `daily_briefing.py` `TASKS_JSON_PATH` (line ~243) | Code edit |
 
-Interactive followup test (after a successful autonomous run):
-```bash
-claude /daily-briefing-followup
-```
+Note: moving `FUNDER_WATCHLIST` + `PEER_PUBLISHERS` out of code into
+Sheets is on the roadmap so all source-config can be edited without
+a commit.
 
-Walk through what the agent surfaces. Verify that:
-- It correctly identifies what you've already actioned via the dashboard
-- "Send this drafted reply" actually sends via Gmail
-- "Promote to tasks" appends to the task_proposals Sheet tab
-
-## Activating locally — Windows Task Scheduler runbook
-
-The wrapper `run-cowork-briefing.ps1` (sibling to this README) is what
-the scheduled task should invoke. It:
-
-- reads the skill prompt from `skills/daily-briefing.md`
-- feeds it to `claude.exe -p` in headless mode with
-  `--permission-mode bypassPermissions`
-- writes `plugins/daily-briefing-cowork/logs/<timestamp>.log` for each run
-- auto-prunes logs older than 30 days
-
-### One-time manual smoke test
-
-Before registering with Task Scheduler, run the wrapper by hand and
-verify the email arrives + the dashboard URL works:
+## Running manually
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File `
-  "C:\Users\G09jb\Documents\ClaudeCode_onC\daily-briefing-automation\plugins\daily-briefing-cowork\run-cowork-briefing.ps1"
-```
-
-Then check `plugins/daily-briefing-cowork/logs/<latest>.log` for errors,
-and compare the resulting email/dashboard against the same morning's
-Python-version briefing.
-
-### Register the scheduled task
-
-Run this PowerShell snippet as your normal user (NOT elevated — Claude
-Code needs to inherit your interactive session OAuth + Anthropic creds):
-
-```powershell
-$Action = New-ScheduledTaskAction `
-  -Execute 'powershell.exe' `
-  -Argument '-ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Users\G09jb\Documents\ClaudeCode_onC\daily-briefing-automation\plugins\daily-briefing-cowork\run-cowork-briefing.ps1"'
-
-$Trigger = New-ScheduledTaskTrigger -Daily -At 7:30am
-
-$Settings = New-ScheduledTaskSettingsSet `
-  -AllowStartIfOnBatteries `
-  -DontStopIfGoingOnBatteries `
-  -StartWhenAvailable `
-  -WakeToRun `
-  -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
-
-# Principal: run as the currently-logged-on user, only when logged on.
-# Required because Claude Code needs your interactive session — won't
-# work with "run whether logged on or not" since that uses a non-
-# interactive session that can't auth Claude Code.
-$Principal = New-ScheduledTaskPrincipal `
-  -UserId "$env:USERNAME" `
-  -LogonType Interactive `
-  -RunLevel Limited
-
-Register-ScheduledTask `
-  -TaskName 'DailyBriefingCowork' `
-  -Action $Action -Trigger $Trigger -Settings $Settings -Principal $Principal `
-  -Description 'Cowork daily briefing — fires Claude Code at 07:30 to produce + send the briefing.'
-```
-
-### Confirm + force-run for testing
-
-```powershell
-# Verify it registered
-Get-ScheduledTask -TaskName 'DailyBriefingCowork' | Format-List *
-
-# Force-run NOW (without waiting until 07:30)
+# Morning briefing (takes 10-20 min, sends real comms)
 Start-ScheduledTask -TaskName 'DailyBriefingCowork'
 
-# Tail the latest log while it runs
-Get-Content (Get-ChildItem 'C:\Users\G09jb\Documents\ClaudeCode_onC\daily-briefing-automation\plugins\daily-briefing-cowork\logs\*.log' |
-  Sort-Object LastWriteTime -Desc | Select-Object -First 1) -Wait
+# Live tasks dashboard refresh (~10s, no comms)
+Start-ScheduledTask -TaskName 'TasksLiveRefresh'
+
+# Tail the latest log
+Get-Content (Get-ChildItem 'plugins\daily-briefing-cowork\logs\*.log' `
+  | Sort LastWriteTime -Desc | Select -First 1) -Wait
 ```
 
-### Caveats
+## Failure handling
 
-- **Laptop must be powered on at 07:30** with you logged in. WakeToRun
-  is set, so a sleeping laptop should wake; a powered-off laptop won't.
-  The existing GitHub Actions cron stays armed as a fallback for laptop-
-  off mornings (don't disable it until 5+ consecutive clean cowork runs).
-- **Claude Code session auth.** If `claude` requires re-auth (rare),
-  the run will hang. The 30-min ExecutionTimeLimit kills the task and
-  leaves an error in the log — you'll notice no briefing landed in
-  Slack + can re-auth manually.
-- **Avoid laptop sleep/lock at 07:30 during early days.** Lid-closed
-  with display sleep is usually fine; full hibernate breaks WakeToRun
-  on some hardware.
+Both wrappers DM Slack via `daily_briefing.alert_slack_failure` on
+any step error. Silent failures (the original "task fired but
+nothing happened" mode) are no longer reachable — every wrapper
+path either succeeds and writes a "finished" line, or fails loudly
+with a `FATAL:` line and a Slack DM.
 
-### Disabling the GitHub Actions cron (after ~5 clean runs)
+The morning briefing has additional resilience:
+- `upload_drive_doc` retries on 5xx and is non-fatal (briefing
+  still ships if Drive is flaky)
+- `read_acks` reads the correct `acks` tab (was the wrong tab
+  pre-fix; that bug caused "marked done items kept coming back")
+- Email-version anchors point at the dashboard, not the webhook
+  (the "Sorry, unable to open" `/u/1/` issue)
 
-Once cowork runs are reliably landing daily, comment out the schedule
-in `.github/workflows/`:
+## Activation (one-time setup)
 
-```yaml
-on:
-  # schedule:           # ← comment these out
-  #   - cron: "30 11 * * *"
-  #   - cron: "30 12 * * *"
-  workflow_dispatch: {}   # keep the manual-trigger fallback
+Both Task Scheduler entries are already registered. To re-register
+from scratch (e.g., on a new machine):
+
+```powershell
+# Morning briefing — 07:30 daily, Interactive logon required
+$Action = New-ScheduledTaskAction -Execute 'powershell.exe' `
+  -Argument '-ExecutionPolicy Bypass -WindowStyle Hidden -File ' +
+            '"<repo-root>\plugins\daily-briefing-cowork\run-cowork-briefing.ps1"'
+$Trigger = New-ScheduledTaskTrigger -Daily -At 7:30am
+$Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries `
+  -DontStopIfGoingOnBatteries -StartWhenAvailable -WakeToRun `
+  -ExecutionTimeLimit (New-TimeSpan -Minutes 90)
+$Principal = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" `
+  -LogonType Interactive -RunLevel Limited
+Register-ScheduledTask -TaskName 'DailyBriefingCowork' `
+  -Action $Action -Trigger $Trigger -Settings $Settings -Principal $Principal
 ```
 
-This leaves the workflow available for emergency manual runs (e.g.
-laptop dead, traveling) but stops the duplicate auto-cron.
+```powershell
+# Tasks-live — every 2h from 08:00 to 22:00
+$Action = New-ScheduledTaskAction -Execute 'powershell.exe' `
+  -Argument '-ExecutionPolicy Bypass -WindowStyle Hidden -File ' +
+            '"<repo-root>\plugins\daily-briefing-cowork\run-tasks-live.ps1"'
+$Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date "08:00") `
+  -RepetitionInterval (New-TimeSpan -Hours 2) `
+  -RepetitionDuration (New-TimeSpan -Hours 14)
+$Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries `
+  -DontStopIfGoingOnBatteries -StartWhenAvailable -WakeToRun `
+  -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
+$Principal = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" `
+  -LogonType Interactive -RunLevel Limited
+Register-ScheduledTask -TaskName 'TasksLiveRefresh' `
+  -Action $Action -Trigger $Trigger -Settings $Settings -Principal $Principal
+```
 
-### Uninstalling
+## Uninstall
 
 ```powershell
 Unregister-ScheduledTask -TaskName 'DailyBriefingCowork' -Confirm:$false
+Unregister-ScheduledTask -TaskName 'TasksLiveRefresh'    -Confirm:$false
 ```
 
-## Why this isn't a one-session build
-
-Each section's prompt in `daily_briefing.py` is the product of iteration —
-careful wording, examples, edge-case handling. Porting them faithfully to
-a single skill prompt takes time + comparison runs to ensure no quality
-regression. Phase 1 = scaffold + minimum viable run. Production-quality
-iteration follows.
+The GitHub Actions cron (the original Python pipeline) remains
+available via `workflow_dispatch` as an emergency fallback if your
+laptop is off for several days. See `.github/workflows/daily-briefing.yml`.

@@ -9,7 +9,7 @@
 $ErrorActionPreference = 'Continue'
 
 $RepoRoot   = 'C:\Users\G09jb\Documents\ClaudeCode_onC\daily-briefing-automation'
-$SkillPath  = Join-Path $RepoRoot 'plugins\daily-briefing-cowork\skills\daily-briefing.md'
+$SkillPath  = Join-Path $RepoRoot 'plugins\daily-briefing-cowork\commands\daily-briefing.md'
 $LogDir     = Join-Path $RepoRoot 'plugins\daily-briefing-cowork\logs'
 $Stamp      = Get-Date -Format 'yyyy-MM-dd_HHmm'
 $LogFile    = Join-Path $LogDir "$Stamp.log"
