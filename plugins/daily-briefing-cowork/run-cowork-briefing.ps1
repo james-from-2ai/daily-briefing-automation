@@ -28,13 +28,15 @@ function Write-Log([string]$msg) {
 
 # Fail-loud helper: write to log AND DM Slack so a broken cron run can't
 # vanish silently. Reuses daily_briefing.alert_slack_failure (which already
-# knows our user ID + token convention).
+# knows our user ID + token convention). Paths go through env vars to
+# avoid Python's `\U` unicode-escape parsing of Windows backslashes.
 function Alert-Failure([string]$reason) {
     Write-Log "FATAL: $reason"
     try {
-        # One-liner python; errors here are themselves logged but don't
-        # raise (the outer reason is what matters).
-        $py = "import sys; sys.path.insert(0, r'$RepoRoot'); from daily_briefing import alert_slack_failure; alert_slack_failure(Exception('cowork wrapper: $reason'), 'see log $LogFile')"
+        $env:WRAPPER_REPO = $RepoRoot
+        $env:WRAPPER_LOG = $LogFile
+        $env:WRAPPER_REASON = $reason
+        $py = "import os, sys; sys.path.insert(0, os.environ['WRAPPER_REPO']); from daily_briefing import alert_slack_failure; alert_slack_failure(Exception('cowork wrapper: ' + os.environ['WRAPPER_REASON']), 'see log ' + os.environ['WRAPPER_LOG'])"
         & python -X utf8 -c $py *>> $LogFile
     } catch {
         Write-Log "alert_slack_failure helper itself failed: $_"
@@ -70,10 +72,17 @@ if (-not (Test-Path $SkillPath)) {
 $Prompt = Get-Content -Path $SkillPath -Raw -Encoding UTF8
 Write-Log ("skill prompt loaded ({0} chars)" -f $Prompt.Length)
 
-# Run claude. --permission-mode bypassPermissions is required for
-# unattended runs (skill calls python helpers that write files, hit
-# Google APIs, push git, etc). All streams to the log.
-& $ClaudeExe -p $Prompt --permission-mode bypassPermissions *>> $LogFile
+# Run claude. The 34KB skill prompt is TOO LARGE to pass as a CLI
+# argument on Windows (CreateProcess command-line limit is ~32KB, you
+# get "The filename or extension is too long"). Pipe it via stdin
+# instead — `claude -p` with no prompt arg reads from stdin.
+#
+# --dangerously-skip-permissions is required for unattended runs (the
+# skill calls python helpers that write files, hit Google APIs, push
+# git, etc). NOT --permission-mode (that flag doesn't exist in this
+# CLI — passing it silently exited claude in <10s with no briefing).
+# All streams to the log.
+$Prompt | & $ClaudeExe -p --dangerously-skip-permissions *>> $LogFile
 $claudeExit = $LASTEXITCODE
 
 "=== cowork briefing run finished $(Get-Date -Format 'u') (exit=$claudeExit) ===" |
