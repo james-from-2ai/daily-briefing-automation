@@ -109,31 +109,71 @@ def _render_task(task: dict) -> str:
 '''
 
 
+def _proposal_action_url(proposal_key: str, action: str) -> str:
+    """Webhook URL the JS click handler hits to mark a suggestion as
+    accepted ('add') or rejected ('dismiss'). Uses the existing
+    acks-route convention with prefixed keys so no Apps Script change
+    is needed — sync_feedback_to_tasks parses the prefix on its next run."""
+    if not ACK_WEBHOOK_URL:
+        return "#"
+    prefix = {"add": "accept", "dismiss": "reject"}.get(action, "reject")
+    q = {
+        "keys": f"{prefix}:{proposal_key}",
+        "date": dt.date.today().isoformat(),
+        "kind": f"proposal_{action}",
+        "source": "tasks-live",
+    }
+    return f"{ACK_WEBHOOK_URL}?{urllib.parse.urlencode(q)}"
+
+
 def _render_proposals(proposals: list[dict]) -> str:
     pending = [p for p in proposals
-               if (p.get("status") or "").lower() == "pending"]
+               if (p.get("status") or "").lower() in ("", "pending")]
     if not pending:
         return ""
     items = []
     for p in pending:
+        proposal_key = _esc((p.get("key") or "").strip())
+        if not proposal_key:
+            continue  # can't act without a key
+        title = _esc(p.get("title", "")[:200])
+        urgency = _esc((p.get("urgency") or "medium"))
+        section = _esc(p.get("section", "?"))
+        date = _esc((p.get("date") or "")[:10])
         items.append(f'''
-<li style="margin:6px 0;">
-  <strong>{_esc(p.get("title", "")[:200])}</strong>
-  <span style="color:#6b7280;font-size:11px;">
-    · {_esc(p.get("urgency", "medium"))}
-    · added {_esc(p.get("date", "")[:10])}
-  </span>
-  <div style="color:#92400e;font-size:11.5px;margin-top:2px;">
-    ⏳ awaiting next 2-hour sync to promote into tasks.json
+<div class="suggestion-card" data-proposal-key="{proposal_key}" style="
+    background:#fff; border:1px solid #fde68a; border-left:4px solid #f59e0b;
+    border-radius:4px; padding:10px 14px; margin:8px 0;">
+  <div style="font-weight:600;color:#111827;">{title}</div>
+  <div style="font-size:11.5px;color:#6b7280;margin-top:3px;">
+    {urgency} · from {section} on {date}
   </div>
-</li>''')
+  <div style="margin-top:8px;display:flex;gap:10px;">
+    <a href="#" class="suggest-add"
+       data-webhook-url="{_proposal_action_url(proposal_key, "add")}"
+       style="color:#15803d;text-decoration:none;font-weight:600;font-size:12.5px;
+              border:1px solid #15803d;padding:3px 10px;border-radius:4px;
+              cursor:pointer;">✅ add to tasks</a>
+    <a href="#" class="suggest-dismiss"
+       data-webhook-url="{_proposal_action_url(proposal_key, "dismiss")}"
+       style="color:#6b7280;text-decoration:none;font-size:12.5px;
+              border:1px solid #d1d5db;padding:3px 10px;border-radius:4px;
+              cursor:pointer;">✕ dismiss</a>
+  </div>
+</div>''')
+    if not items:
+        return ""
     return f'''
-<section style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;
-         padding:14px 18px;margin:18px 0;">
-  <h2 style="margin:0 0 8px 0;color:#92400e;font-size:16px;">
-    ⏳ Pending — sent from briefing, not yet promoted
+<section style="background:#fffbeb;border-radius:8px;padding:14px 18px;
+         margin:18px 0;">
+  <h2 style="margin:0 0 4px 0;color:#92400e;font-size:16px;">
+    💡 Suggested tasks — your approval needed
   </h2>
-  <ul style="margin:0;padding-left:20px;">{"".join(items)}</ul>
+  <p style="color:#92400e;font-size:11.5px;margin:0 0 10px 0;">
+    Sent from your briefing dashboard's 📌. Nothing here goes into tasks.json
+    until you click ✅ add. Dismissing keeps tasks.json untouched too.
+  </p>
+  {"".join(items)}
 </section>
 '''
 
@@ -243,11 +283,23 @@ def render(tasks_data: dict, proposals: list[dict]) -> str:
   a {{ color: #0e7490; }}
   details > summary {{ list-style: none; }}
   details > summary::-webkit-details-marker {{ display: none; }}
-  /* Inline-done state: applied client-side when "mark done" is clicked. */
+  /* Inline state changes applied client-side on button click. */
   .task-card.is-done {{ opacity: 0.55; }}
   .task-card.is-done .task-title,
   .task-card.is-done .task-why {{ text-decoration: line-through; }}
   .task-card.is-done .mark-done {{ pointer-events: none; opacity: 0.5; }}
+  .suggestion-card.is-confirmed {{
+      border-left-color: #15803d !important; background: #f0fdf4 !important;
+  }}
+  .suggestion-card.is-confirmed .suggest-add,
+  .suggestion-card.is-confirmed .suggest-dismiss {{
+      pointer-events: none; opacity: 0.4;
+  }}
+  .suggestion-card.is-dismissed {{ opacity: 0.4; }}
+  .suggestion-card.is-dismissed .suggest-add,
+  .suggestion-card.is-dismissed .suggest-dismiss {{
+      pointer-events: none;
+  }}
   #toast {{ position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
             background: #111827; color: white; padding: 10px 18px;
             border-radius: 999px; font-size: 13px; opacity: 0;
@@ -279,11 +331,9 @@ def render(tasks_data: dict, proposals: list[dict]) -> str:
   </footer>
   <div id="toast"></div>
   <script>
-    // Intercept "mark done" clicks: fire the Apps Script webhook silently
-    // in the background (no-cors fetch, no response needed), mark the
-    // task visually done on the page. Never opens a new tab.
-    // Next 2-hour cron picks up the ack and moves the task to completed
-    // in tasks.json.
+    // All interactive buttons use the same pattern: e.preventDefault()
+    // so no new tab opens, fire the webhook silently via no-cors fetch,
+    // update the UI inline, show a toast. Next cron syncs tasks.json.
     (function () {{
       function toast(msg, isErr) {{
         var t = document.getElementById('toast');
@@ -292,24 +342,55 @@ def render(tasks_data: dict, proposals: list[dict]) -> str:
         t.className = isErr ? 'show err' : 'show';
         setTimeout(function () {{ t.className = ''; }}, 2400);
       }}
-      document.querySelectorAll('a.mark-done').forEach(function (a) {{
-        a.addEventListener('click', function (e) {{
-          e.preventDefault();
-          var url = a.getAttribute('data-webhook-url');
-          if (!url || url === '#') {{
-            toast('No webhook configured', true);
-            return;
-          }}
-          var card = a.closest('.task-card');
-          // Immediate visual feedback — don't wait for the fetch.
-          if (card) card.classList.add('is-done');
-          toast('✅ marked done — syncs to tasks.json next refresh');
-          // Fire and forget (no-cors so the Apps Script auto-close page
-          // doesn't even render; we never read the response).
-          fetch(url, {{ mode: 'no-cors', credentials: 'omit' }}).catch(function () {{
-            toast('Webhook may have failed — check next refresh', true);
-            if (card) card.classList.remove('is-done');
+
+      function fireSilently(url) {{
+        return fetch(url, {{ mode: 'no-cors', credentials: 'omit' }});
+      }}
+
+      function wire(selector, handler) {{
+        document.querySelectorAll(selector).forEach(function (a) {{
+          a.addEventListener('click', function (e) {{
+            e.preventDefault();
+            var url = a.getAttribute('data-webhook-url');
+            if (!url || url === '#') {{
+              toast('No webhook configured', true);
+              return;
+            }}
+            handler(a, url);
           }});
+        }});
+      }}
+
+      // Active task → ✅ mark done.
+      wire('a.mark-done', function (a, url) {{
+        var card = a.closest('.task-card');
+        if (card) card.classList.add('is-done');
+        toast('✅ marked done — syncs to tasks.json next refresh');
+        fireSilently(url).catch(function () {{
+          toast('Webhook may have failed — check next refresh', true);
+          if (card) card.classList.remove('is-done');
+        }});
+      }});
+
+      // Suggested task → ✅ add to tasks.json.
+      wire('a.suggest-add', function (a, url) {{
+        var card = a.closest('.suggestion-card');
+        if (card) card.classList.add('is-confirmed');
+        toast('✅ added — appears in tasks.json on next refresh');
+        fireSilently(url).catch(function () {{
+          toast('Webhook may have failed — check next refresh', true);
+          if (card) card.classList.remove('is-confirmed');
+        }});
+      }});
+
+      // Suggested task → ✕ dismiss (tasks.json NOT touched).
+      wire('a.suggest-dismiss', function (a, url) {{
+        var card = a.closest('.suggestion-card');
+        if (card) card.classList.add('is-dismissed');
+        toast('✕ dismissed — stays out of tasks.json');
+        fireSilently(url).catch(function () {{
+          toast('Webhook may have failed — check next refresh', true);
+          if (card) card.classList.remove('is-dismissed');
         }});
       }});
     }})();
