@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -61,6 +62,19 @@ def _recently_dismissed(state: list[dict], acks: list[dict]) -> list[dict]:
     return out
 
 
+def _pull_tasks(creds) -> list[dict]:
+    """Phase-aware task source. Phase 1 (BRIEFING_IO_LAYER unset/local) reads
+    the local OneDrive tasks.json via pull_tasks_json(). Phase 2 (any other
+    value) reads the Drive bridge copy, since the cloud agent can't see the
+    laptop disk. Same output shape either way."""
+    io_layer = os.environ.get("BRIEFING_IO_LAYER", "local").lower()
+    if io_layer in ("", "local"):
+        return pull_tasks_json()
+    # Phase 2 — import lazily so Phase 1 never depends on the bridge module.
+    from tasks_bridge import read_tasks_bridge
+    return read_tasks_bridge(creds)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", required=True,
@@ -97,7 +111,7 @@ def main() -> None:
         "recently_dismissed": _recently_dismissed(state, acks),
         "votes": read_votes(creds),
         "user_sources": read_user_sources(creds),
-        "tasks_json": pull_tasks_json(),
+        "tasks_json": _pull_tasks(creds),
         "journal_recent": pull_journal_recent(),
         "weather": pull_weather(),
         "stocks": pull_stocks(),

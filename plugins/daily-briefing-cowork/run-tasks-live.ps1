@@ -92,6 +92,16 @@ if (-not $diff) {
     Write-Log "pushed."
 }
 
+# Step 5: refresh the Phase-2 tasks.json Drive bridge (non-fatal).
+# The scheduled remote-agent briefing can't see this laptop's OneDrive, so
+# it reads tasks from this Drive copy. Runs every 2h alongside the dashboard
+# refresh; a failure here must NOT affect the (load-bearing) Phase-1 cron.
+Write-Log "--- step 5: tasks_bridge (Drive copy for Phase 2) ---"
+& python -X utf8 (Join-Path $Helpers 'tasks_bridge.py') *>> $LogFile
+if ($LASTEXITCODE -ne 0) {
+    Write-Log "  tasks_bridge exited $LASTEXITCODE (non-fatal, continuing)"
+}
+
 "=== tasks-live run finished $(Get-Date -Format 'u') (exit=0) ===" |
     Out-File $LogFile -Append -Encoding utf8
 

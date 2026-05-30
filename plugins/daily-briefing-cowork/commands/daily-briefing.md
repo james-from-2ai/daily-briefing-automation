@@ -27,6 +27,44 @@ mutates the section HTMLs in place (injecting 👍/👎 + action buttons,
 stripping duped blocks) and emits the carryover block — both feed into
 render_html.
 
+## Step 0 — Detect phase + bootstrap (Phase 2 only)
+
+Read the `BRIEFING_IO_LAYER` env var:
+- **unset or `local`** → **Phase 1** (laptop / Task Scheduler). Skip this
+  step entirely; creds + git auth already exist on the machine. Go to Step 1.
+- **anything else** (`remote`, `mcp`) → **Phase 2** (Anthropic scheduled
+  remote agent). The cloud env has no Google token on disk and no ambient
+  git auth — only the env-var secrets configured in the routine. Run the
+  bootstrap to materialize them before anything else:
+
+  ```bash
+  python plugins/daily-briefing-cowork/helpers/phase2_bootstrap.py --verify --require
+  ```
+
+  This decodes `GOOGLE_TOKEN_B64` → `~/.config/2ai-briefing/token.json`
+  (the exact path `daily_briefing.google_creds()` reads), sets up a git
+  credential helper that feeds `GITHUB_PAT_BRIEFING` to pushes (token never
+  written to disk), and verifies the Google creds with a live call. If it
+  exits non-zero, **stop** — the secrets aren't configured correctly; do
+  not attempt a partial briefing.
+
+  After bootstrap, the rest of this skill is **identical to Phase 1** — the
+  same helpers run unchanged. Two behavioral differences are handled for
+  you:
+  - **tasks.json** comes from the Drive bridge automatically (`pull_inputs.py`
+    reads `tasks-bridge.json` from Drive instead of the local OneDrive path
+    when `BRIEFING_IO_LAYER` != `local`). No action needed.
+  - **Haiku dedup** is skipped (no `ANTHROPIC_API_KEY` in the cloud env). In
+    Step 3 you pass `--no-haiku-dedup` to persist_state.py and do the
+    semantic dedup yourself in your own reasoning before writing the section
+    HTMLs (see the dedup note in Step 3).
+
+  > Why no MCP here: the connected Gmail MCP can only draft (not send) and
+  > there is no Google Sheets MCP, so the email send and the
+  > state/dedup/carryover core can't run over MCP. Real Google API creds
+  > (this token) are required either way, and with them the Phase-1 helpers
+  > already do everything.
+
 ## Step 1 — Pull all inputs
 
 Run `python plugins/daily-briefing-cowork/helpers/pull_inputs.py --out /tmp/briefing-inputs.json`.
@@ -459,6 +497,13 @@ don't, omit `--source-proposals-file` or write `[]` to the file.
 Pass `--no-haiku-dedup` if you want to skip the Haiku dedup API call
 and do dedup yourself in your own reasoning before writing the section
 HTMLs. (~$0.02 savings per run; v0.1 default keeps Haiku.)
+
+**Phase 2 (`BRIEFING_IO_LAYER` != `local`): always pass `--no-haiku-dedup`.**
+The cloud env has no `ANTHROPIC_API_KEY`, so the Haiku call would fail. Do
+the semantic dedup in your own reasoning instead: before writing the
+news/funder/whitespace/evidence section HTMLs, check each item against the
+last ~14 days of `state` rows in those sections and drop anything that
+refers to the same underlying event as a recent item.
 
 ## Step 4 — Render artifacts
 
