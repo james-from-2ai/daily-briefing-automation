@@ -82,19 +82,22 @@ You are running the 2AI daily briefing as a scheduled remote agent (Phase 2).
 Run silently end-to-end — this delivers real comms (email + Slack DM + Drive
 Doc + dashboard). Do not ask questions.
 
-1. Clone the repo fresh and enter it:
-   git clone --depth 1 "https://x-access-token:${GITHUB_PAT_BRIEFING}@github.com/james-from-2ai/daily-briefing-automation.git" repo
-   cd repo
-2. Install deps:  pip install -q -r requirements.txt
-3. Bootstrap the env (decodes creds, configures git, verifies Google auth):
+The routine checks out the daily-briefing-automation repo as your working
+directory. If plugins/daily-briefing-cowork/ is NOT present, clone it first:
+git clone --depth 1 "https://x-access-token:${GITHUB_PAT_BRIEFING}@github.com/james-from-2ai/daily-briefing-automation.git" repo && cd repo
+
+1. Install deps:  pip install -q -r requirements.txt
+2. Bootstrap the env (decodes Google creds from GOOGLE_TOKEN_B64, configures
+   git auth from GITHUB_PAT_BRIEFING, verifies a live Google call):
    python plugins/daily-briefing-cowork/helpers/phase2_bootstrap.py --verify --require
-   If this exits non-zero, STOP and report — the env secrets are misconfigured.
-   Do not attempt a partial briefing.
-4. Read plugins/daily-briefing-cowork/commands/daily-briefing.md and follow it
+   If this exits non-zero, STOP and report — the James-ENV secrets are
+   misconfigured. Do not attempt a partial briefing.
+3. Read plugins/daily-briefing-cowork/commands/daily-briefing.md and follow it
    end to end as your instructions. BRIEFING_IO_LAYER=remote is already set, so:
    tasks come from the Drive bridge, and you pass --no-haiku-dedup to
-   persist_state.py and do the semantic dedup in your own reasoning.
-5. On any fatal error the helpers DM Slack via alert_slack_failure — let that
+   persist_state.py and do the semantic dedup in your own reasoning. Delivery
+   (deliver.py) pushes the dashboard to docs/, which deploy-pages.yml publishes.
+4. On any fatal error the helpers DM Slack via alert_slack_failure — let that
    happen, then report the failure and the failing step.
 ```
 
@@ -104,15 +107,19 @@ After the secrets are set, fire a one-off run to validate end-to-end against
 real Drive/Gmail/Slack **before** arming the daily cron. Confirm all four
 artifacts land: email in inbox, Slack DM, Drive Doc, dashboard URL live.
 
-## Step 4 — Arm the daily cron (DST-bracketed)
+## Step 4 — Arm the daily cron (single fixed-UTC)
 
-Two entries so 07:30 America/New_York is hit year-round; the state-sheet
-dedup makes both-fire days a no-op:
+**Decision (2026-05-30):** one routine at **`0 12 * * *` (12:00 UTC)** =
+08:00 EDT (summer) / 07:00 EST (winter). Cron is UTC.
 
-```
-30 11 * * *   # 07:30 EDT (summer)
-30 12 * * *   # 07:30 EST (winter)
-```
+The originally-planned DST bracket (`30 11` + `30 12`, both enabled) was
+rejected: the engine has no "already delivered today" guard, so two enabled
+crons would send James a *second* full briefing (email + Slack + Doc) every
+day — the state-sheet dedup only suppresses repeat *items*, not repeat
+*delivery*. A single fixed-UTC cron never double-sends and never fires
+before 07:00 local; it drifts ±30 min from 07:30 across DST, which is fine
+for a morning briefing. (If exact 07:30 year-round is ever wanted, the
+clean way is a delivered-today guard in the engine, not two crons.)
 
 ## Step 5 — Monitoring plan (next ~5 days)
 
