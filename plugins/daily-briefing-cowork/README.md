@@ -18,9 +18,13 @@ Scheduler:
 - `TasksLiveRefresh` — every 2 hours from 08:00 to 22:00, refreshes
   `tasks-live.html` from `tasks.json` + briefing feedback.
 
-🔜 **Phase 2 prereqs pending James.** See `PHASE2_SETUP.md` —
-scheduled-remote-agent variant unblocks once MCP connectors,
-tasks.json bridge, and GitHub PAT are configured.
+🔧 **Phase 2 built — pending env secrets + test fire.** Scheduled
+remote-agent variant. Code is in place (`helpers/phase2_bootstrap.py`,
+`helpers/tasks_bridge.py`, skill Step 0); reuses the Phase-1 helpers
+unchanged with Google creds surfaced as an env secret (MCP can't send
+email or do the Sheets state core — see `PHASE2_DEPLOY.md`). Remaining:
+James sets the routine env secrets, then a one-off test fire before the
+daily cron is armed. Runbook: `PHASE2_DEPLOY.md`.
 
 ## Architecture
 
@@ -78,13 +82,16 @@ plugins/daily-briefing-cowork/
 ├── .claude-plugin/
 │   └── plugin.json                  ← Claude Code plugin manifest
 ├── README.md                        ← you are here
-├── PHASE2_SETUP.md                  ← scheduled-remote-agent runbook
+├── PHASE2_SETUP.md                  ← Phase 2 prereqs + rationale (build steps superseded)
+├── PHASE2_DEPLOY.md                 ← Phase 2 as-built deploy runbook + routine spec
 ├── run-cowork-briefing.ps1          ← 07:30 daily briefing wrapper
 ├── run-tasks-live.ps1               ← every-2h tasks dashboard wrapper
 ├── commands/
 │   ├── daily-briefing.md            ← morning briefing skill prompt
 │   └── daily-briefing-followup.md   ← interactive Q&A prompt
 ├── helpers/
+│   ├── phase2_bootstrap.py          ← Phase 2: decode creds from env + git auth (cloud)
+│   ├── tasks_bridge.py              ← Phase 2: tasks.json ↔ Drive bridge (write + read)
 │   ├── pull_inputs.py               ← briefing: read all upstream sources → JSON
 │   ├── persist_state.py             ← briefing: annotate + dedup + state-sheet
 │   ├── render_artifacts.py          ← briefing: email + dashboard HTML

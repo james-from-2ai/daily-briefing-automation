@@ -1,5 +1,15 @@
 # Phase 2: scheduled remote agent setup
 
+> **⚠️ Superseded — see [`PHASE2_DEPLOY.md`](PHASE2_DEPLOY.md) for the
+> as-built version.** The MCP-helper approach in §P2.4–P2.6 below was
+> dropped during the build: the connected Gmail MCP can't send (drafts
+> only) and there's no Google Sheets MCP, so email delivery and the
+> state/dedup/carryover core can't run over MCP. Phase 2 instead reuses
+> the Phase-1 helpers unchanged with Google creds surfaced as an env
+> secret (the same pattern as the GitHub-Actions fallback). The prereqs
+> in §Pre-2.1–2.3 are still accurate; the build steps are not. This file
+> is kept for the rationale + prereq history.
+
 ## What this is
 
 Phase 1 (now working) runs the cowork briefing on James's laptop via
