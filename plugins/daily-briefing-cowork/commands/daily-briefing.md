@@ -420,6 +420,19 @@ to the state sheet.
 | publisher_landscape | no | no |
 | sources (Friday weekly proposer) | no — passed via `--source-proposals-file` JSON | proposals only |
 | sources_today (daily proposer) | no — passed via `--source-proposals-file` JSON | proposals only |
+| drive_audit | no — pre-rendered by `pull_inputs.drive_audit_html` | no |
+
+**Drive audit:** `pull_inputs.py` already pre-renders `drive_audit_html`
+(grouped by editor, last 7d) into the inputs JSON. Before running
+render_artifacts, write that value to disk:
+
+```python
+# In your work, after reading /tmp/briefing-inputs.json:
+import json
+inputs = json.loads(open("/tmp/briefing-inputs.json").read())
+open("/tmp/section-drive-audit.html", "w", encoding="utf-8").write(
+    inputs.get("drive_audit_html") or "")
+```
 
 ```bash
 python plugins/daily-briefing-cowork/helpers/persist_state.py \
@@ -466,6 +479,7 @@ python plugins/daily-briefing-cowork/helpers/render_artifacts.py \
   --evidence-file /tmp/section-evidence.html \
   --publisher-file /tmp/section-publisher.html \
   --sources-file /tmp/section-sources.html \
+  --drive-audit-file /tmp/section-drive-audit.html \
   --carryover-file /tmp/section-carryover.html \
   --out-email /tmp/briefing-email.html \
   --out-dashboard /tmp/briefing-dashboard.html \

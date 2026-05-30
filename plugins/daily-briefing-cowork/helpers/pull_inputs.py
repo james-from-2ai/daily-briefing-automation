@@ -34,9 +34,11 @@ from daily_briefing import (  # noqa: E402
     google_creds, pull_calendar, pull_drive_recent, pull_1on1_recent_entries,
     pull_inbox_signals, pull_news_topics_sheet, pull_recent_feedback,
     pull_tasks_json, pull_journal_recent, pull_weather, pull_stocks,
-    pull_program_area_corpus, read_state, read_acks, read_votes,
+    pull_program_area_corpus, pull_drive_audit, render_drive_audit,
+    read_state, read_acks, read_votes,
     read_user_sources, apply_acks_to_state,
-    ONEONONE_DOCS, FUNDER_WATCHLIST, PEER_PUBLISHERS, EVIDENCE_STREAMS,
+    get_funder_watchlist, get_peer_publishers,
+    ONEONONE_DOCS, EVIDENCE_STREAMS,
 )
 
 
@@ -79,6 +81,10 @@ def main() -> None:
         "is_funder_day": today.toordinal() % 2 == 0,
         "calendar": pull_calendar(creds, today),
         "drive": pull_drive_recent(creds),
+        # Pre-rendered HTML for the '📁 Shared Drive activity' section.
+        # The renderer is deterministic and shared with daily_briefing.main();
+        # the agent passes this through to render_artifacts unchanged.
+        "drive_audit_html": render_drive_audit(pull_drive_audit(creds)),
         "oneonones": {name: pull_1on1_recent_entries(creds, fid)
                       for name, fid in ONEONONE_DOCS.items()},
         "inbox_signals": pull_inbox_signals(creds),
@@ -96,9 +102,10 @@ def main() -> None:
         "weather": pull_weather(),
         "stocks": pull_stocks(),
         "program_corpus": pull_program_area_corpus(creds),
-        # Constants the agent needs but doesn't have to re-derive:
-        "funder_watchlist": FUNDER_WATCHLIST,
-        "peer_publishers": PEER_PUBLISHERS,
+        # Sheet-managed source config (with constants as fallback).
+        # James edits source_config tab to add/remove entries without a deploy.
+        "funder_watchlist": get_funder_watchlist(creds),
+        "peer_publishers": get_peer_publishers(creds),
         "evidence_streams": EVIDENCE_STREAMS,
     }
 

@@ -40,24 +40,38 @@ function Alert-Failure([string]$reason) {
     }
 }
 
-# Step 1: sync feedback (task_proposals + acks) into tasks.json
-Write-Log "--- step 1: sync_feedback_to_tasks ---"
+# Step 1a: scrape Slack DM replies into task_proposals (non-fatal).
+Write-Log "--- step 1a: scrape_slack_replies ---"
+& python -X utf8 (Join-Path $Helpers 'scrape_slack_replies.py') *>> $LogFile
+if ($LASTEXITCODE -ne 0) {
+    Write-Log "  scrape_slack_replies exited $LASTEXITCODE (non-fatal, continuing)"
+}
+
+# Step 1b: detect new 1:1 slips from Katie + Sarah docs (non-fatal).
+Write-Log "--- step 1b: extract_1on1_slips ---"
+& python -X utf8 (Join-Path $Helpers 'extract_1on1_slips.py') *>> $LogFile
+if ($LASTEXITCODE -ne 0) {
+    Write-Log "  extract_1on1_slips exited $LASTEXITCODE (non-fatal, continuing)"
+}
+
+# Step 2: sync feedback (task_proposals + acks) into tasks.json
+Write-Log "--- step 2: sync_feedback_to_tasks ---"
 & python -X utf8 (Join-Path $Helpers 'sync_feedback_to_tasks.py') *>> $LogFile
 if ($LASTEXITCODE -ne 0) {
     Alert-Failure "sync_feedback_to_tasks.py exit=$LASTEXITCODE"
     exit $LASTEXITCODE
 }
 
-# Step 2: render the dashboard
-Write-Log "--- step 2: render_tasks_dashboard ---"
+# Step 3: render the dashboard
+Write-Log "--- step 3: render_tasks_dashboard ---"
 & python -X utf8 (Join-Path $Helpers 'render_tasks_dashboard.py') *>> $LogFile
 if ($LASTEXITCODE -ne 0) {
     Alert-Failure "render_tasks_dashboard.py exit=$LASTEXITCODE"
     exit $LASTEXITCODE
 }
 
-# Step 3: force-add (gitignored), commit, push so deploy-pages publishes
-Write-Log "--- step 3: git push docs/tasks-live.html ---"
+# Step 4: force-add (gitignored), commit, push so deploy-pages publishes
+Write-Log "--- step 4: git push docs/tasks-live.html ---"
 $DashFile = 'docs/tasks-live.html'
 if (-not (Test-Path (Join-Path $RepoRoot $DashFile))) {
     Alert-Failure "rendered file missing: $DashFile"

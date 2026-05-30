@@ -59,6 +59,10 @@ def main() -> None:
     parser.add_argument("--trends-file", default=None)
     parser.add_argument("--publisher-file", default=None)
     parser.add_argument("--sources-file", default=None)
+    parser.add_argument("--drive-audit-file", default=None,
+                        help="Path to the pre-rendered Drive audit HTML "
+                             "(from pull_inputs.drive_audit_html). The "
+                             "agent writes this from the inputs JSON.")
     parser.add_argument("--out-email", required=True)
     parser.add_argument("--out-dashboard", required=True)
     parser.add_argument("--dashboard-url-out", required=True)
@@ -91,6 +95,7 @@ def main() -> None:
         dashboard_url=dashboard_url,
         ideas=_read_or_empty(args.ideas_file),
         sources_today=_read_or_empty(args.sources_today_file),
+        drive_audit=_read_or_empty(args.drive_audit_file),
     )
 
     cleaned_email, bad_urls = verify_urls(email_html)

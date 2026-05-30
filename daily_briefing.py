@@ -465,6 +465,144 @@ def pull_drive_recent(creds):
     return resp.get("files", [])
 
 
+# Drive audit — last N days, grouped by stakeholder, ranked by activity.
+# Wider lookback than pull_drive_recent's 30h since this is the "what's
+# everyone been working on" view, not the "what changed overnight" view.
+DRIVE_AUDIT_LOOKBACK_DAYS = 7
+DRIVE_AUDIT_TOP_EDITORS = 6
+DRIVE_AUDIT_DOCS_PER_EDITOR = 5
+# Recognised stakeholders — keys are email-prefix or displayName lower-cased
+# fragments we surface as the canonical group label. Files modified by
+# anyone NOT in this list still get counted under "other".
+DRIVE_AUDIT_STAKEHOLDERS = [
+    "katie", "kanika", "sarah", "mariam", "yoni", "simon",
+    "parth", "deep", "ankur",
+]
+
+
+def pull_drive_audit(creds, lookback_days: int = DRIVE_AUDIT_LOOKBACK_DAYS) -> dict:
+    """Last `lookback_days` of Drive file modifications, grouped by
+    last-modifying-user. Returns:
+      {
+        "lookback_days": N,
+        "by_editor": {
+          "Katie Doe": [{name, modifiedTime, webViewLink, mimeType}, ...],
+          ...
+        },
+        "total_files": int,
+      }
+
+    Used by the briefing's '📁 Shared Drive activity' section to surface
+    what each key stakeholder has been working on. No LLM in the loop;
+    pure deterministic grouping + sort."""
+    svc = build("drive", "v3", credentials=creds, cache_discovery=False)
+    since = (dt.datetime.utcnow() - dt.timedelta(days=lookback_days)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    files = []
+    page_token = None
+    # Page through up to 300 files (broad enough for a busy 7d window).
+    while len(files) < 300:
+        resp = svc.files().list(
+            q=f"modifiedTime > '{since}' and trashed = false",
+            orderBy="modifiedTime desc",
+            pageSize=100,
+            pageToken=page_token,
+            fields=("nextPageToken,files(id,name,mimeType,modifiedTime,"
+                    "lastModifyingUser(displayName,emailAddress),webViewLink)"),
+        ).execute()
+        files.extend(resp.get("files", []))
+        page_token = resp.get("nextPageToken")
+        if not page_token:
+            break
+
+    # Anything matching these gets filtered as James's own edits — Drive
+    # surfaces him under multiple identities (work email, personal,
+    # display name) so a single check on email isn't enough.
+    james_aliases = {
+        RECIPIENT_EMAIL.lower(),
+        "james.bedford", "j.alexander", "j.bedford",
+        "bedford, j. alexander",
+    }
+    by_editor: dict[str, list[dict]] = {}
+    for f in files:
+        editor = (f.get("lastModifyingUser") or {})
+        name = editor.get("displayName", "").strip()
+        email = (editor.get("emailAddress") or "").lower()
+        if not name and not email:
+            continue   # unknown editor is noise; skip
+        label = name or email.split("@")[0]
+        # Skip the briefing user's own edits — noisy and not useful for
+        # the "what's everyone else working on" view.
+        if (email in james_aliases or
+                any(a in label.lower() for a in
+                    ["james bedford", "james.bedford", "bedford"])):
+            continue
+        by_editor.setdefault(label, []).append({
+            "name": f.get("name", ""),
+            "modifiedTime": f.get("modifiedTime", ""),
+            "webViewLink": f.get("webViewLink", ""),
+            "mimeType": f.get("mimeType", ""),
+        })
+
+    return {
+        "lookback_days": lookback_days,
+        "by_editor": by_editor,
+        "total_files": len(files),
+    }
+
+
+def render_drive_audit(audit: dict) -> str:
+    """Render the Drive-audit dict as an HTML section. Top editors by
+    activity, with their top docs each. Empty string if no activity."""
+    by_editor = audit.get("by_editor") or {}
+    if not by_editor:
+        return ""
+    # Rank editors by file count (desc), break ties by most recent edit.
+    def sort_key(entry):
+        edits = entry[1]
+        latest = max((e.get("modifiedTime", "") for e in edits), default="")
+        return (-len(edits), -ord(latest[0]) if latest else 0, latest)
+    ranked = sorted(by_editor.items(), key=sort_key)[:DRIVE_AUDIT_TOP_EDITORS]
+
+    lookback = audit.get("lookback_days", DRIVE_AUDIT_LOOKBACK_DAYS)
+    parts = [f'<h2>📁 Shared Drive activity — last {lookback} days</h2>']
+    parts.append(
+        '<p style="font-size:12.5px;color:#6b7280;margin:0 0 12px 0;">'
+        f"Top {len(ranked)} stakeholders by file activity, with up to "
+        f"{DRIVE_AUDIT_DOCS_PER_EDITOR} most-recent docs each. "
+        f"({audit.get('total_files', 0)} files modified in window.)</p>"
+    )
+    for editor, edits in ranked:
+        edits_sorted = sorted(edits,
+                              key=lambda e: e.get("modifiedTime", ""),
+                              reverse=True)[:DRIVE_AUDIT_DOCS_PER_EDITOR]
+        parts.append(
+            f'<h3 style="margin-top:14px;font-size:14px;color:#111827;">'
+            f'{editor} <span style="color:#6b7280;font-size:11px;'
+            f'font-weight:400;">· {len(edits)} file'
+            f'{"s" if len(edits) != 1 else ""}</span></h3><ul>'
+        )
+        for e in edits_sorted:
+            mt = (e.get("modifiedTime") or "")[:10]
+            link = e.get("webViewLink") or "#"
+            name = re.sub(r"<", "&lt;", e.get("name", "(no name)"))
+            kind = ""
+            mime = e.get("mimeType", "")
+            if "spreadsheet" in mime:
+                kind = " <span style='font-size:10px;color:#6b7280;'>📊</span>"
+            elif "presentation" in mime:
+                kind = " <span style='font-size:10px;color:#6b7280;'>📽</span>"
+            elif "document" in mime:
+                kind = " <span style='font-size:10px;color:#6b7280;'>📄</span>"
+            parts.append(
+                f'<li><a href="{link}">{name}</a>{kind} '
+                f'<span style="color:#9ca3af;font-size:11px;">· {mt}</span></li>'
+            )
+        parts.append("</ul>")
+    return "\n".join(parts)
+
+
 def export_doc_text(creds, file_id: str) -> str:
     """Export a Google Doc as plain text."""
     svc = build("drive", "v3", credentials=creds, cache_discovery=False)
@@ -1687,14 +1825,16 @@ def propose_2ai_ideas(news_html: str, program_corpus: dict[str, list[dict]] | No
     return "".join(b.text for b in msg.content if hasattr(b, "text"))
 
 
-def synthesize_publisher_landscape(prefs_digest: str = "") -> str:
+def synthesize_publisher_landscape(prefs_digest: str = "",
+                                   publishers: list[dict] | None = None) -> str:
     """Once-a-month deep look at what peer publishers are putting out:
     each org's focus + gaps, plus sector-wide publishing gaps.
 
-    Runs a single big Claude call with agentic web search across all
-    PEER_PUBLISHERS; the model decides how many searches it needs.
+    `publishers` is sheet-resolved by main() via get_peer_publishers(creds);
+    falls back to PEER_PUBLISHERS module constant if not provided.
     """
-    pubs_list = "\n".join(f"- {p['name']} — {p['url']}" for p in PEER_PUBLISHERS)
+    publishers = publishers if publishers is not None else PEER_PUBLISHERS
+    pubs_list = "\n".join(f"- {p['name']} — {p['url']}" for p in publishers)
     prefs_block = (f"\n\nJames's topic preferences: {prefs_digest}"
                    if prefs_digest else "")
 
@@ -2047,8 +2187,13 @@ def synthesize_inbox_triage(
 
 
 def synthesize_funder_watchlist(recent_headlines: list[str],
-                                prefs_digest: str = "") -> str:
-    """Tier-0 daily check across FUNDER_WATCHLIST. Always runs, never skipped."""
+                                prefs_digest: str = "",
+                                funders: list[dict] | None = None) -> str:
+    """Tier-0 daily check across the funder watchlist. Always runs.
+
+    `funders` is sheet-resolved by main() via get_funder_watchlist(creds);
+    falls back to the FUNDER_WATCHLIST module constant if not provided."""
+    funders = funders if funders is not None else FUNDER_WATCHLIST
     dedup_block = (
         "\n\nSkip anything substantively covered already:\n- "
         + "\n- ".join(recent_headlines[-30:])
@@ -2059,7 +2204,7 @@ def synthesize_funder_watchlist(recent_headlines: list[str],
         if prefs_digest else ""
     )
     items_html = []
-    for i, f in enumerate(FUNDER_WATCHLIST):
+    for i, f in enumerate(funders):
         # Pace web-search calls to stay under Sonnet's TPM bucket (each call
         # pulls ~5-10K tokens of search context). 20s between iterations keeps
         # us under Tier 1's 30K ITPM with headroom. max_retries on the client
@@ -2440,6 +2585,113 @@ def read_votes(creds) -> list[dict]:
     return [dict(zip(header, r + [""] * (len(header) - len(r)))) for r in rows[1:]]
 
 
+SOURCE_CONFIG_COLUMNS = ["type", "name", "url", "query", "enabled"]
+
+
+def _bootstrap_source_config(creds) -> None:
+    """One-time write: seed source_config tab from FUNDER_WATCHLIST +
+    PEER_PUBLISHERS so James has an editable starting point. Called
+    only when read finds the tab missing/empty."""
+    if not ACK_SHEET_ID:
+        return
+    seed = [SOURCE_CONFIG_COLUMNS]
+    for f in FUNDER_WATCHLIST:
+        seed.append(["funder", f.get("name", ""), f.get("url", ""),
+                     f.get("query", ""), "TRUE"])
+    for p in PEER_PUBLISHERS:
+        seed.append(["publisher", p.get("name", ""), p.get("url", ""),
+                     "", "TRUE"])
+    sheets = _sheets(creds)
+    # Add the tab if it doesn't exist; clear + write if it does.
+    try:
+        sheets.spreadsheets().batchUpdate(
+            spreadsheetId=ACK_SHEET_ID,
+            body={"requests": [{"addSheet": {
+                "properties": {"title": "source_config"}
+            }}]},
+        ).execute()
+    except Exception:
+        pass  # tab already exists
+    sheets.spreadsheets().values().clear(
+        spreadsheetId=ACK_SHEET_ID, range="source_config!A:Z").execute()
+    sheets.spreadsheets().values().update(
+        spreadsheetId=ACK_SHEET_ID, range="source_config!A1",
+        valueInputOption="RAW", body={"values": seed}).execute()
+    print(f"[source_config] bootstrapped {len(seed)-1} rows "
+          f"from constants", file=sys.stderr)
+
+
+def read_source_config(creds, type_filter: str | None = None) -> list[dict]:
+    """Read the `source_config` tab. If the tab is missing or empty,
+    auto-bootstrap from FUNDER_WATCHLIST + PEER_PUBLISHERS so the
+    function is always non-empty after first call.
+
+    type_filter: "funder" or "publisher" to filter rows.
+    Returns rows that have enabled != "FALSE".
+    """
+    if not ACK_SHEET_ID:
+        return []
+    try:
+        resp = _sheets(creds).spreadsheets().values().get(
+            spreadsheetId=ACK_SHEET_ID, range="source_config!A:Z"
+        ).execute()
+        rows = resp.get("values", [])
+    except Exception:
+        rows = []
+
+    if len(rows) < 2:
+        # Missing or header-only — seed it.
+        try:
+            _bootstrap_source_config(creds)
+            resp = _sheets(creds).spreadsheets().values().get(
+                spreadsheetId=ACK_SHEET_ID, range="source_config!A:Z"
+            ).execute()
+            rows = resp.get("values", [])
+        except Exception as e:
+            print(f"[source_config] bootstrap failed: {e}", file=sys.stderr)
+            return []
+        if len(rows) < 2:
+            return []
+
+    header = rows[0]
+    out = []
+    for r in rows[1:]:
+        row = dict(zip(header, r + [""] * (len(header) - len(r))))
+        # "enabled" defaults to TRUE if column missing; only FALSE
+        # explicitly disables.
+        if (row.get("enabled") or "TRUE").strip().upper() == "FALSE":
+            continue
+        if type_filter and row.get("type") != type_filter:
+            continue
+        out.append(row)
+    return out
+
+
+def get_funder_watchlist(creds=None) -> list[dict]:
+    """Sheet-first funder list, falling back to FUNDER_WATCHLIST constant
+    if creds aren't available or the Sheet is empty/unreachable."""
+    if not creds:
+        return FUNDER_WATCHLIST
+    try:
+        rows = read_source_config(creds, type_filter="funder")
+    except Exception as e:
+        print(f"[source_config] funder read failed: {e}", file=sys.stderr)
+        return FUNDER_WATCHLIST
+    return rows or FUNDER_WATCHLIST
+
+
+def get_peer_publishers(creds=None) -> list[dict]:
+    """Sheet-first publisher list, falling back to PEER_PUBLISHERS constant."""
+    if not creds:
+        return PEER_PUBLISHERS
+    try:
+        rows = read_source_config(creds, type_filter="publisher")
+    except Exception as e:
+        print(f"[source_config] publisher read failed: {e}", file=sys.stderr)
+        return PEER_PUBLISHERS
+    return rows or PEER_PUBLISHERS
+
+
 def read_user_sources(creds) -> list[dict]:
     """Read the `sources` tab — sources James has accepted via 👍 propagate
     here with status='accepted' and are added to the news picker's context."""
@@ -2755,7 +3007,8 @@ def render_html(today: dt.date, prioritization: str, news: str,
                 widgets_html: str = "",
                 dashboard_url: str = "",
                 ideas: str = "",
-                sources_today: str = "") -> str:
+                sources_today: str = "",
+                drive_audit: str = "") -> str:
     """Axios smart-brevity layout. Color-coded section cards, TL;DR strip,
     pill-style feedback widgets. The synth functions output their own
     <h2>Section name</h2> headings — we wrap each in a card div tagged
@@ -2940,6 +3193,7 @@ def render_html(today: dt.date, prioritization: str, news: str,
         {carryover_html}
         {_section("priorities", prioritization)}
         {_section("inbox", inbox)}
+        {_section("driveaudit", drive_audit)}
         {_section("ideas", ideas)}
         {_section("funder", funder)}
         {_section("news", news)}
@@ -3406,6 +3660,16 @@ def main():
     drive = pull_drive_recent(creds)
     print(f"    {len(drive)} files")
 
+    print("  pulling Drive audit (last 7d grouped by editor)…")
+    try:
+        drive_audit = pull_drive_audit(creds)
+        drive_audit_html = render_drive_audit(drive_audit)
+        print(f"    {drive_audit['total_files']} files across "
+              f"{len(drive_audit['by_editor'])} editors")
+    except Exception as e:
+        print(f"    drive audit failed: {e}")
+        drive_audit_html = ""
+
     print("  pulling 1:1 docs…")
     oneonones = {name: pull_1on1_recent_entries(creds, fid)
                  for name, fid in ONEONONE_DOCS.items()}
@@ -3452,10 +3716,18 @@ def main():
         inbox_msgs, oneonone_notes=oneonones, calendar=cal,
     )
 
+    # Resolve sheet-managed source config once; pass through to all
+    # consumers. Falls back to module constants if Sheet is empty.
+    funder_watchlist = get_funder_watchlist(creds)
+    peer_publishers = get_peer_publishers(creds)
+    print(f"  source_config: {len(funder_watchlist)} funders, "
+          f"{len(peer_publishers)} publishers")
+
     recent_headlines = recent_news_headlines(state, today)
     if today.toordinal() % 2 == FUNDER_RUN_PARITY:
         print(f"  building funder watchlist (dedup against {len(recent_headlines)} recent)…")
-        funder_html = synthesize_funder_watchlist(recent_headlines, prefs_digest)
+        funder_html = synthesize_funder_watchlist(
+            recent_headlines, prefs_digest, funders=funder_watchlist)
     else:
         print("  skipping funder watchlist (runs every 2 days)")
         funder_html = ""
@@ -3467,7 +3739,7 @@ def main():
 
     # ---- daily: propose new sources spotted in today's citations ----
     print("  scanning citations for new sources to track…")
-    already_known_sources = ([f["name"] for f in FUNDER_WATCHLIST]
+    already_known_sources = ([f["name"] for f in funder_watchlist]
                              + [r.get("source_name", "")
                                 for r in read_user_sources(creds)
                                 if r.get("status") == "accepted"])
@@ -3519,7 +3791,7 @@ def main():
     if today.weekday() == SOURCES_WEEKDAY:
         print("  proposing new sources…")
         already = read_user_sources(creds)
-        rotation = [f["name"] for f in FUNDER_WATCHLIST] + \
+        rotation = [f["name"] for f in funder_watchlist] + \
                    [r.get("source_name", "") for r in already
                     if r.get("status") == "accepted"]
         sources_html, new_source_rows = propose_new_sources(rotation, already, today)
@@ -3535,7 +3807,8 @@ def main():
                                     for i in range(1, today.day)))
     if is_first_weekday:
         print("  running monthly peer-publisher landscape…")
-        publisher_landscape = synthesize_publisher_landscape(prefs_digest)
+        publisher_landscape = synthesize_publisher_landscape(
+            prefs_digest, publishers=peer_publishers)
     else:
         print("  skipping publisher landscape (runs first weekday of month)")
 
@@ -3657,7 +3930,8 @@ def main():
                        evidence, tldr=tldr, widgets_html=widgets_html,
                        dashboard_url=dashboard_url,
                        ideas=ideas_html,
-                       sources_today=sources_today_html)
+                       sources_today=sources_today_html,
+                       drive_audit=drive_audit_html)
 
     print("  verifying cited URLs…")
     html, bad_urls = verify_urls(html)
