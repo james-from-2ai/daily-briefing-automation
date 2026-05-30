@@ -89,8 +89,81 @@ if (-not (Test-Path $SkillPath)) {
 $Prompt = Get-Content -Path $SkillPath -Raw -Encoding UTF8
 Write-Log ("skill prompt loaded ({0} chars)" -f $Prompt.Length)
 
-$Prompt | & $ClaudeExe -p --dangerously-skip-permissions *>> $LogFile
-$claudeExit = $LASTEXITCODE
+# Retry-on-transient logic. Anthropic API occasionally returns "Stream
+# idle timeout - partial response received" mid-run, especially during
+# news/funder sections that chain many web_search calls. claude.exe
+# exits 1 on these; the briefing then fails despite being a transient
+# infrastructure blip. Wrap with up to 3 attempts, using `--continue`
+# to resume the same conversation rather than restart from scratch.
+#
+# CRITICAL SAFETY: do not retry once delivery side-effects have
+# started. The briefing's final step ships a Drive Doc + Gmail +
+# Slack DM; if we retry past that point, James gets duplicates.
+# We detect "delivery started" by log-grepping for the helpers'
+# progress markers. If found, we accept the failure and bail.
+
+$transientPattern = ("Stream idle timeout|partial response received|" +
+                     "connection reset|ECONNRESET|ETIMEDOUT|socket hang up|" +
+                     "fetch failed|read ECONNRESET|RequestTimeout|" +
+                     "503 Service Unavailable|529 Overloaded|" +
+                     "rate_limit_exceeded")
+
+# Markers that indicate deliver.py has started side-effecting. ANY of
+# these in the log means "do not retry — risk of duplicate emails".
+$deliveryStartedPattern = ("uploading to Drive|Drive Doc:|" +
+                           "sending email|Gmail sent|" +
+                           "posting to Slack|Slack posted|" +
+                           "GitHub Pages: pushed")
+
+function Test-DeliveryStarted {
+    if (-not (Test-Path $LogFile)) { return $false }
+    $content = Get-Content $LogFile -Encoding UTF8 -Raw -ErrorAction SilentlyContinue
+    if (-not $content) { return $false }
+    return $content -match $deliveryStartedPattern
+}
+
+function Test-TransientFailure {
+    if (-not (Test-Path $LogFile)) { return $false }
+    $tail = Get-Content $LogFile -Encoding UTF8 -Tail 80 -ErrorAction SilentlyContinue
+    if (-not $tail) { return $false }
+    return ($tail -join "`n") -match $transientPattern
+}
+
+$maxAttempts = 3
+$claudeExit = -1
+for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+    if ($attempt -eq 1) {
+        Write-Log "--- attempt 1: fresh run ---"
+        $Prompt | & $ClaudeExe -p --dangerously-skip-permissions *>> $LogFile
+    } else {
+        if (Test-DeliveryStarted) {
+            Write-Log ("--- delivery markers present in log; NOT retrying " +
+                       "(would risk duplicate Drive/Gmail/Slack) ---")
+            break
+        }
+        Write-Log "--- attempt ${attempt}: resuming via --continue ---"
+        '' | & $ClaudeExe -p --continue --dangerously-skip-permissions *>> $LogFile
+    }
+    $claudeExit = $LASTEXITCODE
+
+    if ($claudeExit -eq 0) {
+        if ($attempt -gt 1) {
+            Write-Log "--- recovered after $attempt attempt(s) ---"
+        }
+        break
+    }
+    if (-not (Test-TransientFailure)) {
+        Write-Log ("--- exit=$claudeExit but no transient error in log " +
+                   "tail; not retrying (looks like a real failure) ---")
+        break
+    }
+    if ($attempt -lt $maxAttempts) {
+        Write-Log "--- exit=$claudeExit on transient; waiting 30s before retry ---"
+        Start-Sleep -Seconds 30
+    } else {
+        Write-Log "--- exit=$claudeExit on transient; exhausted $maxAttempts attempts ---"
+    }
+}
 
 "=== cowork briefing run finished $(Get-Date -Format 'u') (exit=$claudeExit) ===" |
     Out-File $LogFile -Append -Encoding utf8
