@@ -100,7 +100,26 @@ Read the JSON. **Do not summarise it — you'll use the raw fields below.**
 
 ### Feedback digest (used in many sections below)
 
-The Python version derives a "prefs_digest" from the `votes` and `recent_feedback` fields and threads it through most synthesis calls. You should do the same: skim `recent_feedback` + the most recent ~30 votes, identify which kinds of items James rated 👍 (4-5) vs 👎 (1-2), and treat that as a binding bias on your picks. Keep this digest in your working context — you'll reference it across multiple sections.
+The inputs JSON includes a pre-computed, structured **`pref_profile`** built
+deterministically from James's entire 👍/👎 vote history joined to item text
+(no LLM needed). Use it as the primary, **binding** bias on every pick:
+
+```jsonc
+"pref_profile": {
+  "section_scores": {"news": 4, "funder": 3, "whitespace": -2, ...}, // net up−down
+  "more_of": ["kenya", "rct", "funder rfp", ...],   // keywords from upvoted items
+  "less_of": ["crypto", "us-politics", ...],         // keywords from downvoted items
+  "recent_lean": {...},                              // last ~30 votes only
+  "summary": "More of: news, funder, kenya, rct; Less of: whitespace, crypto"
+}
+```
+
+Lean into high-scoring sections + `more_of` topics; suppress / down-rank
+`less_of` topics and negative-scoring sections. `recent_lean` reflects the
+freshest signal — weight it. Then layer `recent_feedback` (the free-text
+ratings) on top for nuance the votes can't capture. If `pref_profile` is
+empty (no votes yet), fall back to skimming `recent_feedback` + recent votes
+yourself. Keep this in working context — you reference it across sections.
 
 ### Dismissed items — DO NOT re-surface (binding)
 

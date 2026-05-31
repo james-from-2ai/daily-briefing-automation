@@ -75,6 +75,18 @@ def _pull_tasks(creds) -> list[dict]:
     return read_tasks_bridge(creds)
 
 
+def _build_pref_profile(votes: list[dict], state: list[dict]) -> dict:
+    """Compute the structured preference profile. Lazy import keeps the
+    dependency local to this helper; never fatal — a profile error must not
+    sink the pull."""
+    try:
+        from pref_profile import build_profile
+        return build_profile(votes, state)
+    except Exception as e:
+        print(f"  pref_profile build failed ({e}); continuing", file=sys.stderr)
+        return {}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", required=True,
@@ -86,6 +98,7 @@ def main() -> None:
 
     state = read_state(creds)
     acks = read_acks(creds)
+    votes = read_votes(creds)
 
     # TODO: this is a stub assembly. Real version needs error handling +
     # graceful degradation (one failed pull shouldn't sink the whole run).
@@ -109,8 +122,11 @@ def main() -> None:
         # Items James has already dismissed/acknowledged — the agent must
         # not re-surface these unless the situation has materially changed.
         "recently_dismissed": _recently_dismissed(state, acks),
-        "votes": read_votes(creds),
+        "votes": votes,
         "user_sources": read_user_sources(creds),
+        # Durable, structured preference profile derived from the full 👍/👎
+        # vote history joined to item text. Replaces the per-run LLM digest.
+        "pref_profile": _build_pref_profile(votes, state),
         "tasks_json": _pull_tasks(creds),
         "journal_recent": pull_journal_recent(),
         "weather": pull_weather(),
