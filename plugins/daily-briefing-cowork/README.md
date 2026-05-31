@@ -110,6 +110,32 @@ that file remains the shared engine (OAuth flow, Sheet readers,
 HTML rendering, state-sheet schema). The cowork helpers are thin
 orchestrators on top.
 
+## Interactive Slack — one-time setup (gotchas)
+
+Replying to the AutomatedBriefing DM (`done S1` / `task P2` / `note D1 …`)
+requires the Slack app to be configured so the bot can receive + read your
+replies. If replies aren't being picked up, check, in order:
+
+1. **App Home → Show Tabs → Chat/Messages Tab:** "Allow users to send Slash
+   commands and messages from the chat tab" must be **checked**.
+2. **Agents & AI Apps → Agent or Assistant:** must be **OFF**. When on, it
+   *replaces the messages tab* with an assistant pane and routes your
+   messages into assistant threads (delivered via Events API, not the
+   `conversations.history` poll the scraper uses).
+3. **Reinstall the app to the workspace** (OAuth & Permissions →
+   "Reinstall to Workspace"). **This is the step people miss** — the two
+   settings above only take effect after a reinstall. The persistent
+   "Sending messages to this app has been turned off" banner = not yet
+   reinstalled.
+4. **Bot scopes** (no user-token scopes needed): `im:history`, `im:read`,
+   `im:write`, `chat:write`. All present by default.
+
+Note: replies often arrive as **thread replies**, not top-level DM messages
+— `scrape_slack_replies.py` walks threads on the bot's posts, so both work.
+Reinstalling the same workspace keeps the bot token, so `SLACK_BOT_TOKEN`
+stays valid (if posting ever breaks post-reinstall, the token rotated —
+update the env var).
+
 ## Where to edit configuration
 
 | What | Where | Edit how |
