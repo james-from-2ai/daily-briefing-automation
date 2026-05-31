@@ -2445,6 +2445,28 @@ def _ignore_url(today: dt.date, key: str, section: str) -> str:
     return f"{ACK_WEBHOOK_URL}?{urllib.parse.urlencode(q)}"
 
 
+def _done_url(today: dt.date, key: str, section: str) -> str:
+    """URL fired by the '✓ done' button on a Top-priority item.
+
+    Writes the item key to `done_keys` (marks it complete + stops it carrying
+    forward) — the SAME ack route as '✕ not a priority', but WITHOUT the 👎
+    vote the dashboard JS fires for `kind=ignore`. Semantics: 'done' = I
+    completed this (it was a good priority); 'ignore' = don't surface this
+    again (bias away). The dashboard JS shows a '✓ marked done' toast and
+    strikes the item through — it keys off the presence of `keys` with no
+    `kind=ignore`, so no JS change is needed. If this key also became a task
+    (via briefing_key), sync_feedback_to_tasks marks that task done too.
+    """
+    if not ACK_WEBHOOK_URL:
+        return "#"
+    q = {
+        "keys": key, "date": today.isoformat(),
+        "kind": "done",   # consumed by dashboard JS (suppresses 👎); ignored by Apps Script
+        "section": section,
+    }
+    return f"{ACK_WEBHOOK_URL}?{urllib.parse.urlencode(q)}"
+
+
 def _action_widgets(buttons: list[str], today: dt.date, key: str,
                     plain_title: str, section: str) -> str:
     """Render the inline button strip after a list-item body. Each button
@@ -2464,16 +2486,21 @@ def _action_widgets(buttons: list[str], today: dt.date, key: str,
         'font-size:11px;color:#6b7280;margin-left:8px;'
         'border-bottom:1px dotted #9ca3af;text-decoration:none;'
     )
-    if "ignore" in buttons:
+    if "done" in buttons:
         parts.append(
-            f'<a href="{_ignore_url(today, key, section)}" '
-            f'style="{btn_style}">✕ not a {section_label}</a>'
+            f'<a href="{_done_url(today, key, section)}" '
+            f'style="{btn_style}">✓ done</a>'
         )
     if "task" in buttons:
         urgency = "high" if section in ("priority", "inbox") else "medium"
         parts.append(
             f'<a href="{_task_proposal_url(today, key, plain_title, urgency, section)}" '
             f'style="{btn_style}">📌 send to tasks</a>'
+        )
+    if "ignore" in buttons:
+        parts.append(
+            f'<a href="{_ignore_url(today, key, section)}" '
+            f'style="{btn_style}">✕ not a {section_label}</a>'
         )
     if not parts:
         return ""
@@ -2485,7 +2512,7 @@ def _action_widgets(buttons: list[str], today: dt.date, key: str,
 # case-insensitively against the h2 heading text. The trailing tuple
 # is (section_slug, [button_types]) — empty list = index but no buttons.
 _PRIO_SECTION_RULES = [
-    ("Top priorities",            ("priority", ["ignore", "task"])),
+    ("Top priorities",            ("priority", ["done", "task", "ignore"])),
     ("Gold-standard overreach",   ("priority", ["task"])),   # overreach: aspirational, can't really "ignore"
     ("Likely to slip",            ("slip",     [])),         # has action embedded; skip buttons
     ("Decisions needed",          ("decision", ["ignore", "task"])),
