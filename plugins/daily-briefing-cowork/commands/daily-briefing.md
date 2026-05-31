@@ -618,6 +618,14 @@ promotes the ones you ✅. The helper dedups by a stable key, so the same
 slip won't be re-proposed tomorrow. If there are no actionable slips/
 decisions, write `[]` (or skip the step).
 
+**Also emit the Slack action list** for interactive Slack. Write
+`/tmp/slack-action-items.json` — your **top 3-5 priorities** plus the same
+slips + decisions — as `[{"type": "priority|slip|decision", "title": "..."}]`.
+Keep titles short (they show in Slack with codes P1/S1/D1). Don't set
+`code` or `key` — `post_slack_actions.py` assigns codes and computes keys
+(matching the proposer's scheme, so `done S1` later marks the proposed task
+done). This file is posted in Step 5.
+
 ## Step 4 — Render artifacts
 
 Now that the section HTMLs are annotated + cleaned and the carryover
@@ -658,6 +666,19 @@ python plugins/daily-briefing-cowork/helpers/deliver.py \
 ```
 
 Uploads Drive Doc, sends Gmail, posts Slack DM, commits dashboard to `docs/` + pushes to GitHub (which triggers Pages deploy via existing workflow).
+
+Then post the **interactive Slack action list** (coded priorities/slips/
+decisions James can reply to):
+```bash
+python plugins/daily-briefing-cowork/helpers/post_slack_actions.py \
+  --items-file /tmp/slack-action-items.json
+```
+This sends a second short DM listing items as `P1`/`S1`/`D1` with a reply
+cheatsheet (`done S1`, `task P2`, `note D1 …`) and persists the code→key map
+to the `slack_items` tab. The 2-hourly `scrape_slack_replies.py` (tasks-live
+cron) resolves replies: `done <code>` marks that item done, `task <code|text>`
+adds a suggestion, `note <code> …` logs a comment; bare free-text stays a
+task suggestion as before.
 
 ## Step 6 — Exit cleanly
 

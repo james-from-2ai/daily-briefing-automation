@@ -24,17 +24,124 @@ Why this design (one of many):
 from __future__ import annotations
 import argparse
 import datetime as dt
+import difflib
 import hashlib
+import json
 import os
+import re
 import sys
+import urllib.parse
 from pathlib import Path
+
+import requests
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
 from daily_briefing import (  # noqa: E402
     google_creds, _sheets, ACK_SHEET_ID, SLACK_USER_ID,
+    ACK_WEBHOOK_URL, TASKS_JSON_PATH, item_key,
 )
+
+# ---- interactive-command parsing -------------------------------------------
+# Replies are routed by a leading command word; anything unrecognised stays a
+# free-text task suggestion (the original behaviour). Commands target either a
+# short code from the morning action list (done S1) or free text (done: <text>).
+_CMD_RE = re.compile(r"^\s*(done|task|note)\b[:\s]*(.*)$", re.I | re.S)
+_CODE_RE = re.compile(r"^([PSD]\d+)\b", re.I)
+
+
+def parse_command(text: str) -> tuple[str, object]:
+    """Return (kind, arg). kind ∈ {done_code, done_text, task_code, task_text,
+    note_code, note_text, bare}. arg is a code, text, or (code, text)."""
+    m = _CMD_RE.match(text or "")
+    if not m:
+        return ("bare", text)
+    cmd, rest = m.group(1).lower(), m.group(2).strip()
+    cm = _CODE_RE.match(rest)
+    code = cm.group(1).upper() if cm else None
+    if cmd == "done":
+        return ("done_code", code) if code else ("done_text", rest)
+    if cmd == "task":
+        return ("task_code", code) if code else ("task_text", rest)
+    # note
+    if code:
+        return ("note_code", (code, rest[len(code):].strip()))
+    return ("note_text", rest)
+
+
+def _load_slack_items_map(sheets) -> dict[str, dict]:
+    """Today's code→{key,type,title} map from the slack_items tab."""
+    try:
+        resp = sheets.spreadsheets().values().get(
+            spreadsheetId=ACK_SHEET_ID, range="slack_items!A:E").execute()
+    except Exception:
+        return {}
+    rows = resp.get("values", [])
+    if len(rows) < 2:
+        return {}
+    out = {}
+    for r in rows[1:]:
+        r = r + [""] * (5 - len(r))
+        _date, code, key, typ, title = r[:5]
+        if code:
+            out[code.strip().upper()] = {"key": key.strip(),
+                                         "type": typ.strip(),
+                                         "title": title.strip()}
+    return out
+
+
+def _load_active_tasks() -> list[dict]:
+    try:
+        data = json.loads(TASKS_JSON_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    return [t for t in data.get("tasks", []) if t.get("status") != "done"]
+
+
+def _fuzzy_task_id(text: str, tasks: list[dict]) -> str | None:
+    """Best-matching active task id for a free-text `done:` command, or None."""
+    titles = {t.get("title", ""): t.get("id", "") for t in tasks if t.get("title")}
+    if not titles:
+        return None
+    match = difflib.get_close_matches(text, list(titles), n=1, cutoff=0.5)
+    if match:
+        return titles[match[0]]
+    # Fall back to substring containment either direction.
+    low = text.lower()
+    for title, tid in titles.items():
+        if low in title.lower() or title.lower() in low:
+            return tid
+    return None
+
+
+def _append_ack(sheets, done_key: str, dry_run: bool) -> None:
+    """Append a done ack so apply_acks_to_state + sync_feedback mark it done."""
+    if dry_run:
+        print(f"  [dry-run] would ack done_keys={done_key}", file=sys.stderr)
+        return
+    now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    sheets.spreadsheets().values().append(
+        spreadsheetId=ACK_SHEET_ID, range="acks!A:C", valueInputOption="RAW",
+        body={"values": [[dt.date.today().isoformat(), now, done_key]]},
+    ).execute()
+
+
+def _post_comment(key: str, section: str, text: str, dry_run: bool) -> None:
+    """Log a note via the Apps Script webhook (same as the 💬 button)."""
+    if not ACK_WEBHOOK_URL:
+        print("  note skipped — ACK_WEBHOOK_URL unset", file=sys.stderr)
+        return
+    params = {"comment": text[:2000], "key": key or "slack-general",
+              "section": section or "slack", "date": dt.date.today().isoformat()}
+    url = f"{ACK_WEBHOOK_URL}?{urllib.parse.urlencode(params)}"
+    if dry_run:
+        print(f"  [dry-run] would post note: {text[:60]}", file=sys.stderr)
+        return
+    try:
+        requests.get(url, timeout=15)
+    except Exception as e:
+        print(f"  note post failed: {e}", file=sys.stderr)
 
 SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
 # Optional: if the bot lacks im:write scope (needed for conversations.open),
@@ -266,18 +373,58 @@ def main() -> None:
     print(f"  found {len(msgs)} new message(s) from James", file=sys.stderr)
     msgs = msgs[:MAX_PER_RUN]
 
+    code_map = _load_slack_items_map(sheets)
+    active_tasks = _load_active_tasks()
     today_iso = dt.date.today().isoformat()
-    rows = []
+    rows = []  # task_proposals to append in one batch
+
+    def _propose(title: str, ts: str, section: str) -> None:
+        title = title[:200].strip()
+        if not title:
+            return
+        rows.append([today_iso, title, _proposal_key(title, ts), "medium",
+                     section, "pending"])
+        print(f"  + suggest ({section}): {title[:80]}", file=sys.stderr)
+
     for m in msgs:
-        title = m["text"][:200]
-        key = _proposal_key(title, m["ts"])
-        # Apps Script's task_proposals schema:
-        # A:date  B:title  C:key  D:urgency  E:section  F:status
-        rows.append([
-            today_iso, title, key, "medium",
-            "slack-reply", "pending",
-        ])
-        print(f"  + slack-suggest: {title[:80]}", file=sys.stderr)
+        kind, arg = parse_command(m["text"])
+        if kind == "done_code":
+            item = code_map.get(arg)
+            if item and item.get("key"):
+                _append_ack(sheets, item["key"], args.dry_run)
+                print(f"  ✓ done {arg}: {item.get('title','')[:60]}", file=sys.stderr)
+            else:
+                print(f"  ? done {arg}: unknown code (no item today) — "
+                      f"logging as suggestion", file=sys.stderr)
+                _propose(m["text"], m["ts"], "slack-reply")
+        elif kind == "done_text":
+            tid = _fuzzy_task_id(arg, active_tasks)
+            if tid:
+                _append_ack(sheets, tid, args.dry_run)
+                print(f"  ✓ done (task {tid}) from: {arg[:60]}", file=sys.stderr)
+            else:
+                print(f"  ? done: no task matched {arg[:60]!r} — suggesting",
+                      file=sys.stderr)
+                _propose(arg, m["ts"], "slack-reply")
+        elif kind == "task_code":
+            item = code_map.get(arg)
+            if item and item.get("title"):
+                _propose(item["title"], m["ts"], "slack-task")
+            else:
+                _propose(m["text"], m["ts"], "slack-task")
+        elif kind == "task_text":
+            _propose(arg, m["ts"], "slack-task")
+        elif kind == "note_code":
+            code, note_text = arg
+            item = code_map.get(code) or {}
+            _post_comment(item.get("key", ""), item.get("type", "slack"),
+                          note_text, args.dry_run)
+            print(f"  📝 note on {code}: {note_text[:60]}", file=sys.stderr)
+        elif kind == "note_text":
+            _post_comment("", "slack", arg, args.dry_run)
+            print(f"  📝 note: {arg[:60]}", file=sys.stderr)
+        else:  # bare — unchanged default: free-text becomes a suggestion
+            _propose(m["text"], m["ts"], "slack-reply")
 
     _append_proposals(sheets, rows, args.dry_run)
     # Advance cursor to the latest ts even if we capped at MAX_PER_RUN —
