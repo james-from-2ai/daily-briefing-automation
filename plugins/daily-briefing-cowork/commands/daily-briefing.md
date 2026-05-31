@@ -106,6 +106,33 @@ The Python version derives a "prefs_digest" from the `votes` and `recent_feedbac
 
 The inputs JSON includes a `recently_dismissed` list: items James has already marked done or acknowledged via the dashboard. **This is binding.** When synthesizing priorities, decisions-needed, slip flags, inbox, and 2AI ideas, check each item you're about to surface against this list. If it matches something already dismissed — even with different wording (e.g. "Invite Tessa to retreat" ≡ "Should we invite Tessa?") — **suppress it**, UNLESS the underlying situation has materially changed since dismissal (a new deadline, a new blocker, a reply that reopens it). When in doubt, leave it out — re-surfacing dismissed items is the single most annoying failure mode of this briefing. The carryover machinery (persist_state.py) handles state-level suppression by key, but it can't catch reworded re-derivations from source inputs — that's your job here.
 
+## Step 1b — Build the widget strip (poem + HSK4 + weather/stocks)
+
+This renders the top-of-briefing strip (and restores the weather/stocks
+widgets, which the cowork flow had been dropping). Two calls so today's
+HSK4 word gets an example sentence in your voice:
+
+```bash
+# 1. Learn today's HSK4 word.
+python plugins/daily-briefing-cowork/helpers/build_widgets.py --print-hsk
+# → e.g. {"hanzi":"商量","pinyin":"shāngliang","gloss":"to discuss; consult"}
+```
+
+Write ONE short, natural example sentence using that word — Chinese with the
+target word wrapped in `<strong>…</strong>`, followed by the pinyin and an
+English gloss in parentheses. Keep it HSK4-level. Then render:
+
+```bash
+python plugins/daily-briefing-cowork/helpers/build_widgets.py \
+  --inputs-file /tmp/briefing-inputs.json \
+  --out /tmp/section-widgets.html \
+  --hsk-example '我们<strong>商量</strong>一下明天的计划。(Wǒmen shāngliang yīxià míngtiān de jìhuà. — Let'"'"'s discuss tomorrow'"'"'s plan.)'
+```
+
+The poem is pulled from PoetryDB (real poem, not generated; auto-falls back
+if the API is down). `render_artifacts.py` picks this up via `--widgets-file`
+in Step 4. No synthesis needed here — it's a quick deterministic step.
+
 ## Step 2 — Synthesize each section (THIS IS YOUR REASONING WORK)
 
 For each applicable section below, *think* through the output. The instruction blocks are the system prompts the Python version used — treat each as your own instructions for that step. Output each section as an HTML fragment (no `<html>`/`<body>` wrapper) and write it to the indicated `/tmp/section-*.html` file. Empty sections: write an empty file (or just don't write — persist_state.py handles missing files).
@@ -513,6 +540,7 @@ block exists, invoke render_artifacts:
 ```bash
 python plugins/daily-briefing-cowork/helpers/render_artifacts.py \
   --tldr-file /tmp/section-tldr.txt \
+  --widgets-file /tmp/section-widgets.html \
   --prioritization-file /tmp/section-priorities.html \
   --inbox-file /tmp/section-inbox.html \
   --funder-file /tmp/section-funder.html \
