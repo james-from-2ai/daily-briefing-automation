@@ -393,38 +393,50 @@ For each of `health`, `agriculture`, `education`, with `web_search`:
 
 Open with `<h2>White-space — what the field is moving on that we're not</h2>` and a small caption explaining the cadence. Use `program_corpus[area]` for each area's corpus summary (12 most recent docs).
 
-#### Thursday — Evidence digest (weekly, via Consensus) → `/tmp/section-evidence.html`
+#### Thursday — Evidence digest (weekly, two-track) → `/tmp/section-evidence.html`
 
-Runs **once a week (Thursday only)**. Use the **Consensus academic-search MCP tool** (`...__search` — searches 200M+ peer-reviewed papers across Semantic Scholar / PubMed / Scopus / ArXiv; returns titles, authors, abstracts, citation counts, journal quartile, and source URLs). This replaces the old academic-domain `web_search` hack — it's the real thing now that the connector is live.
+Runs **once a week (Thursday only)**. For each stream, run **BOTH tracks in parallel and merge** — peer-reviewed indexing lags, so an academic-only pull misses fresh org/lab announcements, model releases, funder/agency reports, and preprints not yet indexed. We want both the rigorous evidence AND the leading-edge signal.
 
-**Tool-use guidance per stream:**
-- Always set `year_min` to the current year (recent work only) and read the returned abstracts to extract method/sample/effect-size for the card.
-- "AI performance & capabilities" stream: ArXiv-heavy — do NOT exclude preprints.
-- "Weather × AI / Health × AI" stream: set `medical_mode=true` and `study_types=["rct","meta-analysis","systematic review"]` to bias toward strong clinical evidence; only fall back to broader designs if that returns too little.
+**Track A — Consensus academic search** (the `...__search` MCP tool: 200M+ peer-reviewed papers across Semantic Scholar / PubMed / Scopus / ArXiv; returns titles, authors, abstracts, citations, journal quartile, URLs). Per stream:
+- Set `year_min` to the current year; read abstracts to extract method/sample/effect-size.
+- "AI performance & capabilities": ArXiv-heavy — do NOT exclude preprints.
+- "Weather × AI / Health × AI": `medical_mode=true` + `study_types=["rct","meta-analysis","systematic review"]`; broaden only if it returns too little.
+- If the Consensus tool isn't available here (e.g. a Phase-1 laptop without the connector), substitute `web_search` restricted to the stream's `domains` for this track.
 
-**Fallback:** if the Consensus tool isn't available in this environment (e.g. a Phase-1 laptop run without the connector), fall back to `web_search` restricted to the stream's `domains` from `evidence_streams`, exactly as before. Either way, keep the output format below.
+**Track B — `web_search` for emerging signals** the academic index hasn't caught yet (last 7 days): org/lab announcements, model/system releases, funder & agency reports, blog-posted preprints, and news. Search the stream's `domains` plus the broader web. This is the "comes up in the news before it hits Consensus" track — keep it even when Track A is rich.
 
-For each of the two `evidence_streams` (AI capabilities + Weather/health × AI):
+**Merge:** dedup across tracks (if a web hit is the same paper Consensus already returned, keep the Consensus card — it's richer). Surface ~4-6 items per stream total, best-first, each tagged by provenance.
 
-> You are doing an evidence pull for 2AI's weekly briefing in the {stream name} stream. Find papers indexed or published recently (this year, ideally last few weeks).
->
-> Surface 4 items. For each, output:
+For each of the two `evidence_streams` (AI capabilities + Weather/health × AI), format items as:
+
+> **Peer-reviewed / preprint (Track A)** — full card with a `🟢 peer-reviewed` or `🟡 preprint` tag:
 > ```html
 > <div style="border-left:3px solid #5fae5f;padding:6px 12px;margin:14px 0;">
->   <strong>TITLE</strong>
+>   <strong>TITLE</strong> <span style="font-size:10px;color:#15803d;">🟢 peer-reviewed</span>
 >   &nbsp;<span style="font-size:11px;color:#888;">VENUE · DATE</span>
 >   <br><em>Authors:</em> last-name list (cap at 4 + "et al")
 >   <br>One-sentence finding in plain language.
->   <br><em>Method / sample:</em> design + n (be precise — "RCT, n=1,847, Kenya primary care" not "large study in Africa").
+>   <br><em>Method / sample:</em> design + n (be precise — "RCT, n=1,847, Kenya primary care").
 >   <br><em>Effect size:</em> exact number with CI if reported, otherwise "not yet reported".
 >   <br><em>For 2AI:</em> one line — does this update a prior or open a new question? Name the workstream.
 >   <br><a href="URL">primary source</a> · <a href="CONSENSUS_URL">consensus.app</a>
 > </div>
 > ```
 >
-> Bias toward: RCTs > non-randomised intervention studies > observational > preprints > position pieces. Skip anything older than 14 days, anything paywalled without a preprint, and any AI-hype piece without a concrete result.
+> **Announcement / news (Track B)** — lighter card, `🔵 announcement` tag. Method/effect are usually N/A — write "—", don't fabricate:
+> ```html
+> <div style="border-left:3px solid #2563eb;padding:6px 12px;margin:14px 0;">
+>   <strong>TITLE</strong> <span style="font-size:10px;color:#2563eb;">🔵 announcement</span>
+>   &nbsp;<span style="font-size:11px;color:#888;">SOURCE · DATE</span>
+>   <br>One-sentence what-happened in plain language.
+>   <br><em>For 2AI:</em> one line — why it matters / what to watch. Name the workstream.
+>   <br><a href="URL">primary source</a>
+> </div>
+> ```
+>
+> Bias Track A toward: RCTs > non-randomised intervention > observational > preprints > position pieces. Bias Track B toward primary sources (the lab/org/agency itself) over secondary coverage. Skip anything older than 14 days, paywalled without a preprint, or AI-hype with no concrete result/release.
 
-Open with `<h2>Evidence base — new RCTs, studies, preprints</h2>` + caption. Each stream wrapped in `<h3>{stream name}</h3>`.
+Open with `<h2>Evidence base — new studies + emerging signals</h2>` + a one-line caption noting it blends peer-reviewed evidence (Consensus) with this week's announcements (web). Each stream wrapped in `<h3>{stream name}</h3>`.
 
 #### Wednesday — Cross-window trends → `/tmp/section-trends.html`
 

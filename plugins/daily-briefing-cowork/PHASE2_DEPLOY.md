@@ -101,12 +101,13 @@ git clone --depth 1 "https://x-access-token:${GITHUB_PAT_BRIEFING}@github.com/ja
    happen, then report the failure and the failing step.
 ```
 
-> **Consensus (weekly evidence digest):** the Thursday evidence digest uses
-> the Consensus academic-search MCP tool when available, else falls back to
-> academic `web_search`. For the routine to actually call it, add the
-> Consensus tool to the routine's `allowed_tools` when you arm Phase 2 (the
-> connector is already auto-attached to the routine). Until then the fallback
-> keeps the digest working.
+> **Consensus (weekly evidence digest):** the Thursday evidence digest runs
+> two tracks in parallel — Consensus academic search (peer-reviewed papers)
+> AND `web_search` (fresh org/lab announcements + preprints not yet indexed)
+> — then merges. `web_search` always runs; for Track A to use Consensus, add
+> the Consensus tool to the routine's `allowed_tools` when you arm Phase 2
+> (the connector is already auto-attached). Without it, Track A substitutes
+> academic `web_search` and the digest still works.
 
 ## Step 3 — Test fire (one-off, ~30 min out)
 
