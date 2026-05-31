@@ -1,0 +1,360 @@
+<!doctype html>
+        <html><head><meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow, noarchive">
+        <title>2AI daily briefing — 2026-05-30</title>
+        <style>
+          /* Axios smart-brevity, color-coded section cards. */
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                         "Helvetica Neue", sans-serif;
+            max-width: 760px; margin: 0 auto; padding: 32px 22px 48px;
+            color: #111827; line-height: 1.55; background: #fafaf7;
+          }
+          .eyebrow {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px;
+            color: #6b7280; font-weight: 700; margin-bottom: 4px;
+          }
+          h1.title {
+            font-size: 30px; line-height: 1.15; margin: 0 0 4px 0;
+            font-weight: 800; letter-spacing: -0.5px; color: #111827;
+          }
+          .subtitle { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
+          h2 {
+            font-size: 19px; font-weight: 700; margin: 0 0 12px 0;
+            letter-spacing: -0.2px; color: #1f2937;
+          }
+          h3 {
+            font-size: 15px; font-weight: 700; margin: 18px 0 6px 0;
+            color: #374151;
+          }
+          p, li { font-size: 14.5px; }
+          em { color: #4b5563; font-style: italic; }
+          a {
+            color: #0e7490; text-decoration: none;
+            border-bottom: 1px solid rgba(14,116,144,0.35);
+          }
+          a:hover { border-bottom-color: #0e7490; }
+          ul { margin: 8px 0; padding-left: 22px; }
+          li { margin: 5px 0; }
+          strong { color: #111827; }
+
+          /* TL;DR strip — Axios's signature yellow */
+          .tldr {
+            background: #fef3c7; border-left: 4px solid #d97706;
+            padding: 14px 18px; border-radius: 8px; margin: 0 0 22px 0;
+            font-size: 14.5px; line-height: 1.5;
+          }
+          .tldr-label {
+            display: inline-block; background: #d97706; color: #fff;
+            font-size: 10px; font-weight: 700; letter-spacing: 1.4px;
+            padding: 3px 9px; border-radius: 4px; margin-right: 10px;
+            vertical-align: 2px;
+          }
+
+          /* "Mark today as seen" banner */
+          .ack-banner {
+            background: #ecfdf5; border-left: 4px solid #10b981;
+            border-radius: 6px; padding: 11px 16px; margin: 0 0 22px 0;
+            font-size: 13px; color: #064e3b;
+          }
+          .ack-banner-note { color: #6b7280; margin-left: 8px; font-size: 12px; }
+
+          /* Section cards — color-coded left accent + heading color.
+             Each section's <h2> inside the card adopts its accent color. */
+          .card {
+            background: #ffffff; border-radius: 10px;
+            padding: 18px 22px; margin: 18px 0;
+            border-left: 4px solid #94a3b8;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+          }
+          .card > h2:first-child { margin-top: 0; }
+          .card > h2 ~ h2 { margin-top: 26px; }
+
+          .card-priorities { border-left-color: #1e3a8a; }
+          .card-priorities h2 { color: #1e3a8a; }
+          .card-inbox      { border-left-color: #475569; }
+          .card-inbox h2   { color: #475569; }
+          .card-funder     { border-left-color: #b45309; }
+          .card-funder h2  { color: #b45309; }
+          .card-news       { border-left-color: #0e7490; }
+          .card-news h2    { color: #0e7490; }
+          .card-evidence   { border-left-color: #15803d; }
+          .card-evidence h2 { color: #15803d; }
+          .card-whitespace { border-left-color: #6d28d9; }
+          .card-whitespace h2 { color: #6d28d9; }
+          .card-trends     { border-left-color: #6d28d9; }
+          .card-trends h2  { color: #6d28d9; }
+          .card-publisher  { border-left-color: #6d28d9; }
+          .card-publisher h2 { color: #6d28d9; }
+          .card-sources    { border-left-color: #475569; }
+          .card-sources h2 { color: #475569; }
+          .card-ideas      { border-left-color: #be185d; }
+          .card-ideas h2   { color: #be185d; }
+          .card-sourcestoday { border-left-color: #475569; }
+          .card-sourcestoday h2 { color: #475569; }
+
+          /* "So what for 2AI:" callout — the synth prompts already emit
+             this as <strong>So what for 2AI:</strong> followed by text.
+             We can't pattern-match text in pure CSS, so we just style
+             every <strong> in section cards with a subtle accent. */
+          .card p strong:first-child { color: inherit; }
+
+          /* Footer */
+          .feedback-footer {
+            margin-top: 32px; padding: 18px 20px;
+            background: #f1f5f9; border-radius: 10px;
+            font-size: 13.5px; color: #334155;
+            border-left: 4px solid #94a3b8;
+          }
+          .feedback-meta {
+            color: #6b7280; font-size: 12px; margin-top: 6px;
+          }
+        </style>
+        </head><body>
+        <div class="eyebrow">2AI Daily Briefing · SATURDAY MAY 30</div>
+        <h1 class="title">Evening, James.</h1>
+        <div class="subtitle">Generated 10:57 PM · auto-piloted</div>
+<div class="dashboard-banner" style="background:#dbeafe;border-left:4px solid #2563eb;padding:10px 14px;border-radius:6px;margin:0 0 18px 0;font-size:13px;color:#1e3a8a;"><strong>🎛 Interactive dashboard.</strong> All buttons fire in-page — no popups. <span style="color:#475569;">Closes when you do.</span></div>
+        <div style="background:#dbeafe;border-left:4px solid #2563eb;padding:12px 16px;border-radius:6px;margin:0 0 18px 0;font-size:13.5px;color:#1e3a8a;"><strong>🎛 Interactive dashboard.</strong> <a href="https://james-from-2ai.github.io/daily-briefing-automation/2026-05-30-a0ffd530eb3f4321.html" style="color:#1e40af;font-weight:600;">Open in-page version →</a><div style="font-size:12px;color:#475569;margin-top:4px;">Click 👍/👎, leave comments, and send items to your task list — all in one tab, no popups.</div><div style="font-size:12px;color:#475569;margin-top:6px;">📋 <a href="https://james-from-2ai.github.io/daily-briefing-automation/tasks-live.html" style="color:#1e40af;font-weight:600;">Live tasks dashboard →</a> (refreshes every 2h from your task list + dashboard feedback)</div></div>
+        <div class="widgets" style="display:block;padding:10px 16px;background:#ffffff;border-radius:8px;border:1px solid #e5e7eb;margin:0 0 18px 0;font-size:13px;color:#374151;line-height:1.6;">🇺🇸&nbsp;NYC&nbsp;<strong>11°C</strong> &nbsp;·&nbsp; 🇺🇸&nbsp;SF&nbsp;<strong>14°C</strong> &nbsp;·&nbsp; 🇨🇳&nbsp;Beijing&nbsp;<strong>31°C</strong> &nbsp;<span style="color:#d1d5db;">|</span>&nbsp; <span>S&P 500&nbsp;<strong>7,580.06</strong>&nbsp;<span style="color:#15803d;font-weight:600;">▲&nbsp;+0.22%</span></span> &nbsp;·&nbsp; <span>QQQ&nbsp;<strong>738.31</strong>&nbsp;<span style="color:#15803d;font-weight:600;">▲&nbsp;+0.37%</span></span></div>
+<div style="background:#fffdf7;border:1px solid #e7e2d3;border-left:4px solid #b08968;border-radius:8px;padding:12px 16px;margin:0 0 12px 0;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:#b08968;font-weight:700;margin-bottom:6px;">📜 Poem of the day</div><div style="font-size:14.5px;line-height:1.6;color:#1f2937;font-style:italic;">Stella this day is thirty-four,<br>(We shan't dispute a year or more:)<br>However, Stella, be not troubled,<br>Although thy size and years are doubled,<br>Since first I saw thee at sixteen,<br>The brightest virgin on the green;<br>So little is thy form declin'd;<br>Made up so largely in thy mind.<br>&nbsp;<br>Oh, would it please the gods to split<br>Thy beauty, size, and years, and wit;<br>No age could furnish out a pair<br><span style="color:#9ca3af;">…</span></div><div style="font-size:12px;color:#6b7280;margin-top:8px;">— <strong>Stella's Birthday March 13, 1719</strong>, Jonathan Swift</div></div>
+<div style="background:#f7faff;border:1px solid #d8e4f0;border-left:4px solid #c0392b;border-radius:8px;padding:12px 16px;margin:0 0 12px 0;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:#c0392b;font-weight:700;margin-bottom:6px;">🀄 HSK4 word of the day</div><div style="font-size:13px;color:#1f2937;"><span style="font-size:28px;font-weight:700;vertical-align:middle;">困难</span><span style="margin-left:12px;color:#0e7490;font-weight:600;">kùnnán</span><span style="margin-left:10px;color:#4b5563;">difficulty; difficult</span></div><div style="font-size:13px;color:#374151;margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;">这个任务有点<strong>困难</strong>，但我们可以一起解决。(Zhège rènwù yǒudiǎn kùnnán, dàn wǒmen kěyǐ yīqǐ jiějué. — This task is a bit difficult, but we can solve it together.)</div></div>
+        <div class="tldr"><span class="tldr-label">TL;DR</span>Send Mariam's onboarding doc today — she starts Monday and it unblocks her Day-1 prep + the 10:30 30/60/90; then a 30-min review of Deep's CHW PR piece clears his publishing.</div>
+        <div class="ack-banner"><strong>👁 Mark today as seen.</strong> <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30">I've read this briefing &rarr;</button><span class="ack-banner-note">If you don't, items roll forward to tomorrow.</span></div>
+
+        <section class="card card-priorities"><h2>Top priorities today</h2>
+<ol>
+<li><strong>Send Mariam her onboarding doc.</strong> <em>She starts Monday — this is the one thing today that unblocks someone else's whole week (Day-1 prep 9:00, the 10:30 30/60/90 session both run off it).</em><span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-keys="9d2b52a37244" data-date="2026-05-30" data-kind="ignore" data-section="priority">✕ not a priority</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Send Mariam her onboarding doc. She starts Monday — this is the one thing today that unblocks someone else's whole week (Day-1 prep 9:00, the 10:30 30/60/90 session both run off it)." data-key="9d2b52a37244" data-urgency="high" data-section="priority" data-date="2026-05-30">📌 send to tasks</button></span></li>
+<li><strong>Review Deep's CHW PR piece draft.</strong> <em>~30 min, unblocks Deep's publishing; the CHW evidence is moving fast this week (see News), so timing helps.</em><span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-keys="380d801c83c1" data-date="2026-05-30" data-kind="ignore" data-section="priority">✕ not a priority</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Review Deep's CHW PR piece draft. ~30 min, unblocks Deep's publishing; the CHW evidence is moving fast this week (see News), so timing helps." data-key="380d801c83c1" data-urgency="high" data-section="priority" data-date="2026-05-30">📌 send to tasks</button></span></li>
+<li><strong>Action the LMEF interview-guide next steps.</strong> <em>Flagged urgent and it's yours to move — no external dependency, so it only slips if you let it.</em><span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-keys="098fa823f355" data-date="2026-05-30" data-kind="ignore" data-section="priority">✕ not a priority</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Action the LMEF interview-guide next steps. Flagged urgent and it's yours to move — no external dependency, so it only slips if you let it." data-key="098fa823f355" data-urgency="high" data-section="priority" data-date="2026-05-30">📌 send to tasks</button></span></li>
+</ol>
+
+<h2>Gold-standard overreach — if you went all-in</h2>
+<ul>
+<li>Mariam onboarding doc → <em>Overreach:</em> attach a one-page 30/60/90 "first-week map" so Monday's 10:30 session runs off a shared artifact instead of a cold conversation — turns onboarding admin into an alignment win.<span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Mariam onboarding doc → Overreach: attach a one-page 30/60/90 "first-week map" so Monday's 10:30 session runs off a shared artifact instead of a cold conversation — turns onboarding admin into an alig" data-key="0718390aad7b" data-urgency="high" data-section="priority" data-date="2026-05-30">📌 send to tasks</button></span></li>
+<li>Deep's CHW piece → <em>Overreach:</em> pair the copy edit with two hard datapoints from the CHW_AI_Source_Library (e.g., the ASHABot trust-failure finding) so the piece lands on evidence, not just narrative.<span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Deep's CHW piece → Overreach: pair the copy edit with two hard datapoints from the CHW_AI_Source_Library (e.g., the ASHABot trust-failure finding) so the piece lands on evidence, not just narrative." data-key="cf52c20a92db" data-urgency="high" data-section="priority" data-date="2026-05-30">📌 send to tasks</button></span></li>
+</ul>
+
+<h2>Likely to slip — flag now</h2>
+<ul>
+<li><strong>LMEF SROI calculator update</strong> — blocked on <em>Sarah sending Elfsight logins</em> (overdue since Tue May 26). One ping to Sarah de-risks it; it's been stuck 4 days on a 2-minute handoff.</li>
+<li><strong>Other job applications</strong> — pushed from May 23, slipping repeatedly. Box 30 min this weekend or it rolls again.</li>
+</ul>
+
+<h2>Decisions needed from James</h2>
+<ul>
+<li><strong>2AI team-retreat agenda</strong> — Yoni sent the agenda &amp; logistics 4 days ago and it's awaiting your input. A yes/no on the agenda shape before Monday lets Yoni lock logistics.<span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-keys="783d3d0762b4" data-date="2026-05-30" data-kind="ignore" data-section="decision">✕ not a decision</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="2AI team-retreat agenda — Yoni sent the agenda &amp; logistics 4 days ago and it's awaiting your input. A yes/no on the agenda shape before Monday lets Yoni lock logistics." data-key="783d3d0762b4" data-urgency="medium" data-section="decision" data-date="2026-05-30">📌 send to tasks</button></span></li>
+</ul>
+
+<h2>Calendar prep cues</h2>
+<ul>
+<li><strong>Mon 9:00 — Mariam Day 1 prep:</strong> walk in with the onboarding doc + 30/60/90 first-week map.</li>
+<li><strong>Mon 10:00 — Katie / James:</strong> have the agriculture-article status ready (Katie is actively reviewing — confirm where it stands).</li>
+<li><strong>Mon 10:30 — 30/60/90 (Mariam):</strong> reuse the same first-week map so this isn't a separate prep.</li>
+</ul>
+</section>
+        <section class="card card-inbox"><h2>Inbox — needs you</h2>
+<h3>Reply / decide</h3>
+<ul>
+<li><a href="https://mail.google.com/mail/u/0/#inbox/19e7beae029d7dde">2AI Team Retreat — Agenda &amp; Logistics</a> — Yoni Friedman → send your agenda input so he can lock logistics. <div style="margin-top:8px;padding:10px 14px;background:#f0f9ff;border-left:3px solid #0e7490;border-radius:4px;font-size:13px;color:#1f2937;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#0e7490;font-weight:700;margin-bottom:6px;">Draft reply</div><div>Yoni — agenda looks right. One ask: can we anchor the first block to the X-sector CEA work so Mariam's onboarding context lands in the same room? Otherwise good to lock logistics. I'll send two discussion prompts by Monday.</div></div><span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="2AI Team Retreat — Agenda &amp; Logistics — Yoni Friedman → send your agenda input so he can lock logistics. Draft reply Yoni — agenda looks right. On" data-key="9bfa6ac5a6f8" data-urgency="high" data-section="inbox" data-date="2026-05-30">📌 send to tasks</button></span></li>
+</ul>
+<h3>Likely to slip through</h3>
+<ul>
+<li><a href="https://mail.google.com/mail/u/0/#inbox/19e79bd596de8b16">Onboarding packed</a> — Parth Bahuguna, 5d ago → he flagged onboarding materials are ready; a one-line ack + any gaps closes the loop before Mariam's Day 1.<span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Onboarding packed — Parth Bahuguna, 5d ago → he flagged onboarding materials are ready; a one-line ack + any gaps closes the loop before Mariam's Day " data-key="c51e8387ce6d" data-urgency="high" data-section="inbox" data-date="2026-05-30">📌 send to tasks</button></span></li>
+</ul>
+</section>
+        <section class="card card-driveaudit"><h2>📁 Shared Drive activity — last 7 days</h2>
+<p style="font-size:12.5px;color:#6b7280;margin:0 0 12px 0;">Top 4 stakeholders by file activity, with up to 5 most-recent docs each. (67 files modified in window.)</p>
+<h3 style="margin-top:14px;font-size:14px;color:#111827;">shereen.awad <span style="color:#6b7280;font-size:11px;font-weight:400;">· 1 file</span></h3><ul>
+<li><a href="https://docs.google.com/document/d/1M0DEaHNuxgxYDH7VyIDXbRhzmq-LkBoPJyDoc0PmNkM/edit?usp=drivesdk">2AI Program Lead - JD & Hiring Doc</a> <span style='font-size:10px;color:#6b7280;'>📄</span> <span style="color:#9ca3af;font-size:11px;">· 2026-05-26</span></li>
+</ul>
+<h3 style="margin-top:14px;font-size:14px;color:#111827;">kanika <span style="color:#6b7280;font-size:11px;font-weight:400;">· 1 file</span></h3><ul>
+<li><a href="https://docs.google.com/presentation/d/1DDtR0Kizo7JE-kNc3cpUOUh7DaZ6EdJ8JIvuon391VQ/edit?usp=drivesdk">adventures_with_my_son FINAL</a> <span style='font-size:10px;color:#6b7280;'>📽</span> <span style="color:#9ca3af;font-size:11px;">· 2026-05-28</span></li>
+</ul>
+<h3 style="margin-top:14px;font-size:14px;color:#111827;">Yoni Friedman <span style="color:#6b7280;font-size:11px;font-weight:400;">· 1 file</span></h3><ul>
+<li><a href="https://docs.google.com/presentation/d/1RJ18mW24jclFe2NQHhHsKEGD9zXqnkhY/edit?usp=drivesdk&ouid=105040450336773700069&rtpof=true&sd=true">leyning_torah.pptx</a> <span style='font-size:10px;color:#6b7280;'>📽</span> <span style="color:#9ca3af;font-size:11px;">· 2026-05-28</span></li>
+</ul>
+<h3 style="margin-top:14px;font-size:14px;color:#111827;">arjun.chippa <span style="color:#6b7280;font-size:11px;font-weight:400;">· 1 file</span></h3><ul>
+<li><a href="https://docs.google.com/presentation/d/1NaUu2-VkjnDj2YLey4XAWM3qZq7TMw2q/edit?usp=drivesdk&ouid=105040450336773700069&rtpof=true&sd=true">20260528 forecast images.pptx</a> <span style='font-size:10px;color:#6b7280;'>📽</span> <span style="color:#9ca3af;font-size:11px;">· 2026-05-30</span></li>
+</ul>
+<p style="font-size:13px;"><a href="https://james-from-2ai.github.io/daily-briefing-automation/2026-05-30-drive-log-f55b38c9c7bc.html">→ Full Drive change log — last 14 days, every editor, every file →</a></p>
+</section>
+        <section class="card card-ideas"><h2>Implementation ideas — what 2AI could ship this week</h2>
+<ul>
+<li><strong>On-device CHW assistant scoping note (MedGemma 1.5-4B).</strong> Google's <a href="https://research.google/blog/next-generation-medical-image-interpretation-with-medgemma-15-and-medical-speech-to-text-with-medasr/">MedGemma 1.5</a> (Jan) ships a 4B variant tuned for offline/edge inference plus MedASR speech — i.e., a CHW decision-support tool that runs on a phone with no connectivity. Write a 1-pager for Katie scoping a 2AI pilot that pairs MedGemma-4B with the trust-calibration failure modes from this week's CHW evidence (so it's the "does it fail safely" angle no one is costing). <em>Effort:</em> 1-2 days. <div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="e9de3462bc63" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="e9de3462bc63" data-vote="down">👎 less like this</button></div></li>
+<li><strong>"Where the $200M leaves whitespace" memo.</strong> The Gates–Anthropic public-goods push will fund deployments; it does <em>not</em> obviously fund independent CEA/evaluation. Draft a 2-page positioning memo for Katie/Sarah arguing 2AI as the evaluation layer, with 3 concrete CEA targets pulled from the partnership's named diseases (polio, HPV, eclampsia). <em>Effort:</em> 1 day. <a href="https://www.anthropic.com/news/gates-foundation-partnership">Trigger.</a> <div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="30b7d0eeb035" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="30b7d0eeb035" data-vote="down">👎 less like this</button></div></li>
+</ul>
+</section>
+        <section class="card card-funder"><h2>Funder watchlist</h2>
+<h3>Gates Foundation</h3>
+<p>Gates and Anthropic launched a <strong>$200M, four-year partnership</strong> (May 14) to deploy AI across health, education, and agriculture in LMICs — grant funding, API credits, and technical support to build freely available "public goods." Health is the largest slice: overlooked diseases (polio, HPV, eclampsia/preeclampsia) and a tie-up with the Institute for Disease Modeling to improve where malaria/TB treatments get deployed. This stacks on the Jan <a href="https://fortune.com/2026/01/21/gates-foundation-openai-50-million-partnership-africa-rwanda-horizon1000/">Gates–OpenAI "Horizon 1000"</a> ($50M, 1,000 clinics in Africa by 2028, starting Rwanda). <a href="https://www.anthropic.com/news/gates-foundation-partnership">Primary source.</a> <strong>So what for 2AI:</strong> the "public goods + CEA evidence" lane is exactly ours — there's a live opening to position 2AI's cost-effectiveness modeling as the evaluation layer on top of these deployments.</p>
+<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="d8dbf487d800" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="d8dbf487d800" data-vote="down">👎 less like this</button></div>
+<h3>OpenAI Foundation</h3>
+<p>The OpenAI Foundation pledged <strong>$1B in grants over the next year</strong> (announced March) and is staffing up as a real funder — notably hiring Jacob Trefethen (ex-<strong>Coefficient Giving</strong> life-sciences/health lead) to run health grantmaking, plus a new ED search. Source. <strong>So what for 2AI:</strong> Trefethen's move signals health/EA-aligned grantmaking discipline at OpenAI Foundation — warm-intro path worth mapping; their RFP cadence is about to ramp.</p>
+<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="cfb6330ea235" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="cfb6330ea235" data-vote="down">👎 less like this</button></div>
+<h3>Coefficient Giving</h3>
+<p>No standalone announcement this week, but note the talent flow above (Trefethen → OpenAI Foundation). <strong>So what for 2AI:</strong> watch for a portfolio reshuffle in their health line over the next quarter.</p>
+<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="6d4cbc35d5a4" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="6d4cbc35d5a4" data-vote="down">👎 less like this</button></div>
+<h3>Wellcome</h3>
+<p><em>No material updates from Wellcome in the last 7 days.</em></p>
+<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="8f61701fbd93" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="8f61701fbd93" data-vote="down">👎 less like this</button></div>
+<h3>Schmidt Sciences</h3>
+<p><em>No material updates from Schmidt Sciences in the last 7 days.</em></p>
+<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="683426edc0cf" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="683426edc0cf" data-vote="down">👎 less like this</button></div>
+</section>
+        <section class="card card-news"><h2>News briefing — deep dives</h2>
+<h3>AI for community health workers (LMIC)</h3>
+<p>The dominant deployment pattern this week is LLM "always-on supervisor" chatbots for CHWs — ASHABot (India), HealthVaani, HEP Assist now make up the bulk of analyzed implementations, and the Gates–OpenAI Horizon 1000 program is scaling this into 1,000 African clinics. But the field is also publishing its first hard lessons: CHWs <a href="https://www.ictworks.org/global-digital-health-ai-chatbot-failures/">over-trust</a> chatbot answers (treating them as authority, not advice), and chatbots don't touch the real bottlenecks — stockouts, broken referrals, weak supervision. ASHABot (CHI 2025) is the cleanest study. <strong>So what for 2AI:</strong> the evidence is maturing from "does it work" to "where does it fail" — a CEA that prices in trust-calibration and systems readiness would be differentiated and timely.</p>
+<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="dbd524fce48e" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="dbd524fce48e" data-vote="down">👎 less like this</button></div>
+<h3>AI weather forecasting &amp; anticipatory action</h3>
+<p>The fourth <a href="https://www.ecmwf.int/en/about/media-centre/science-blog/2026/ai-weather-quest-2026">AI Weather Quest</a> period opened May 14, benchmarking ML sub-seasonal forecasts against dynamical models. AI models now lead on ~90% of metrics and NOAA's National Hurricane Center has folded GraphCast/Pangu guidance into operational tropical-cyclone workflows. The frontier is shifting from forecasting to <em>impact-based</em> anticipatory action — predicting health/economic impacts on specific populations, not just the weather. <strong>So what for 2AI:</strong> the "forecast → anticipatory action → measured impact" chain is under-evaluated; a 2AI CEA on anticipatory-action triggers in the tropics would sit in genuine whitespace.</p>
+<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="a6050ad3b5fa" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="a6050ad3b5fa" data-vote="down">👎 less like this</button></div>
+<h3>AI advisory for smallholder farmers</h3>
+<p><a href="https://www.global-agriculture.com/ag-tech-research-news/ifpri-and-digital-green-expand-collaboration-to-test-ai-innovations-for-smallholder-farmers/">IFPRI and Digital Green expanded</a> their partnership to user-test FarmerChat (localized, multilingual voice/text/video crop + climate advice) under IFPRI's Generative AI for Agriculture (GAIA) initiative. The 2026 framing is precision-ag-as-a-service via regional extension. <strong>So what for 2AI:</strong> FarmerChat now has an academic evaluation partner (IFPRI) — worth tracking their GAIA results as a comparator/benchmark for the 2AI ag workstream.</p>
+<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="f51244c12fe7" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-05-30" data-key="f51244c12fe7" data-vote="down">👎 less like this</button></div>
+
+<p style="font-size:13px;"><a href="https://james-from-2ai.github.io/daily-briefing-automation/2026-05-30-news-full-2fc0595c7f73.html">→ Full news sweep — more topics + sources →</a></p>
+</section>
+        <section class="card card-sourcestoday"><h2>Sources spotted today — worth tracking?</h2>
+<div style="border-left:3px solid #475569;padding:6px 12px;margin:12px 0;">
+<strong>ICTworks</strong> (ictworks.org)<br>
+<em>Why it's worth tracking:</em> repeatedly the most grounded source on digital-health/AI deployment realities in LMICs — it published this week's CHW chatbot failure-mode analysis that the hype coverage missed.<br>
+<a href="https://script.google.com/macros/s/AKfycbz/exec?source_action=accept&source_id=daily-2026-05-30-ictworks">✅ add to watchlist</a> &nbsp; <a href="https://script.google.com/macros/s/AKfycbz/exec?source_action=reject&source_id=daily-2026-05-30-ictworks">❌ skip</a>
+</div>
+</section>
+
+
+
+
+
+        <div class="feedback-footer"><strong>👋 Was this useful?</strong> <a href="https://docs.google.com/forms/d/e/1FAIpQLSeFEcK8KeQRoW1qM7JdWv_D3VMiNVlVQd0PejZ46RQvs8jFYA/viewform?usp=pp_url&entry.699836171=2026-05-30">Rate today's briefing &rarr;</a><div class="feedback-meta">60 seconds — your ratings train tomorrow's draft. The 👍/👎 next to each item also helps.</div></div>
+        <div id="toast" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#15803d;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-family:-apple-system,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,0.18);opacity:0;transition:opacity 0.25s;pointer-events:none;z-index:9999;"></div>
+<script>
+const WEBHOOK = "https://script.google.com/macros/s/AKfycbzxmy0UYGBMfvSqYGH05rOuER0hVhCFMeYfYuIAT3K558yF7drzULAvaen2i5W3coeNcg/exec";
+const TODAY = "2026-05-30";
+function toast(msg, isError) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.background = isError ? "#dc2626" : "#15803d";
+  t.style.opacity = "1";
+  clearTimeout(window._toast_t);
+  window._toast_t = setTimeout(() => t.style.opacity = "0", 1800);
+}
+function fireWebhook(params, label) {
+  const q = new URLSearchParams(params).toString();
+  fetch(WEBHOOK + "?" + q, {method: "GET", mode: "no-cors"})
+    .catch(e => toast("Network error", true));
+  toast(label || "✓ saved");
+}
+// Attach handlers to the converted webhook buttons.
+document.querySelectorAll("[data-action=\"webhook\"]").forEach(btn => {
+  btn.addEventListener("click", e => {
+    e.preventDefault();
+    const params = {};
+    for (const a of btn.attributes) {
+      if (a.name.startsWith("data-") && a.name !== "data-action") {
+        params[a.name.slice(5)] = a.value;
+      }
+    }
+    let label = "✓ saved";
+    // Ignore: writes mark-done AND fires a 👎 vote so future
+    // synth biases against re-surfacing the same item.
+    if (params.kind === "ignore") {
+      label = "✕ Ignored";
+      fireWebhook({vote: "down", key: params.keys, date: params.date}, null);
+    } else if (params.task_proposal) {
+      label = "📌 Sent to tasks queue";
+    } else if (params.vote === "up") label = "👍 More like this";
+    else if (params.vote === "down") label = "👎 Less like this";
+    else if (params.keys) label = "✓ marked done";
+    else if (Object.keys(params).length === 1 && params.date) label = "✓ acknowledged";
+    fireWebhook(params, label);
+    // Visually dim the parent item if ignoring or marking done.
+    if (params.kind === "ignore" || params.keys) {
+      const li = btn.closest("li");
+      if (li) { li.style.opacity = "0.4"; li.style.textDecoration = "line-through"; }
+    }
+  });
+});
+// Per-item add-ons: alongside every thumbs widget OR
+// action-widgets strip, inject a 💬 comment toggle + 📌 send-
+// to-tasks button (skipping the latter if action-widgets
+// already has a "send to tasks" anchor). Each reads the key
+// + section from the nearest button's data attrs.
+document.querySelectorAll(".thumbs, .action-widgets").forEach(thumbsEl => {
+  const sample = thumbsEl.querySelector("[data-key]");
+  if (!sample) return;
+  const key = sample.dataset.key;
+  // Skip injecting a duplicate task button if already present.
+  const hasTaskAlready = thumbsEl.querySelector("[data-task_proposal]");
+  // Try to infer section from URL params; default to "topic".
+  // The data attributes only carry vote/key/date; section we
+  // tag in the email render is implicit by parent card class.
+  let section = "topic";
+  const card = thumbsEl.closest(".card");
+  if (card) {
+    const match = (card.className.match(/card-(\w+)/) || [])[1];
+    if (match) section = match;
+  }
+  // Build comment + send-to-tasks affordances
+  const wrap = document.createElement("span");
+  wrap.style.marginLeft = "8px";
+  wrap.innerHTML = (
+    '<a href="#" class="dash-comment" style="font-size:11px;'
+    + 'color:#6b7280;text-decoration:none;border-bottom:1px dotted #9ca3af;'
+    + 'margin-right:8px;">💬 comment</a>'
+    + (hasTaskAlready ? '' :
+       '<a href="#" class="dash-task" style="font-size:11px;'
+       + 'color:#6b7280;text-decoration:none;border-bottom:1px dotted #9ca3af;'
+       + '">📌 send to tasks</a>')
+  );
+  thumbsEl.appendChild(wrap);
+  // Comment toggle
+  wrap.querySelector(".dash-comment").addEventListener("click", e => {
+    e.preventDefault();
+    const existing = thumbsEl.parentElement.querySelector(".dash-comment-box");
+    if (existing) { existing.remove(); return; }
+    const box = document.createElement("div");
+    box.className = "dash-comment-box";
+    box.style.cssText = "margin-top:8px;padding:10px;background:#fffbeb;border-left:3px solid #d97706;border-radius:4px;font-size:13px;";
+    box.innerHTML = (
+      '<textarea rows="3" style="width:100%;box-sizing:border-box;'
+      + 'border:1px solid #e5e7eb;border-radius:4px;padding:6px;'
+      + 'font-family:inherit;font-size:13px;" '
+      + 'placeholder="Leave a note about this item for next time…"></textarea>'
+      + '<button type="button" class="dash-comment-submit" '
+      + 'style="margin-top:6px;background:#d97706;color:#fff;'
+      + 'border:none;padding:6px 14px;border-radius:4px;font-size:12px;'
+      + 'cursor:pointer;">Save comment</button>'
+    );
+    thumbsEl.parentElement.appendChild(box);
+    box.querySelector("textarea").focus();
+    box.querySelector(".dash-comment-submit").addEventListener("click", () => {
+      const txt = box.querySelector("textarea").value.trim();
+      if (!txt) { toast("Empty comment", true); return; }
+      fireWebhook({comment: txt, key: key, section: section, date: TODAY},
+                  "💬 Comment saved");
+      box.remove();
+    });
+  });
+  // Send to tasks (only if we injected it — already-present
+  // anchors are handled by the main webhook click listener).
+  const dashTask = wrap.querySelector(".dash-task");
+  if (dashTask) dashTask.addEventListener("click", e => {
+    e.preventDefault();
+    // Use the item's nearest heading text as title.
+    const parent = thumbsEl.parentElement;
+    const h = parent.querySelector("h3");
+    let title = "(untitled item)";
+    if (h) title = h.textContent.trim();
+    else if (parent.firstElementChild) title = parent.firstElementChild.textContent.trim().slice(0, 120);
+    // Default urgency: high for funder/inbox, medium otherwise.
+    const urgency = (section === "funder" || section === "inbox") ? "high" : "medium";
+    fireWebhook({task_proposal: title, urgency: urgency,
+                 section: section, key: key, date: TODAY},
+                "📌 Sent to tasks queue");
+  });
+});
+</script>
+
+</body></html>
