@@ -374,11 +374,20 @@ For each of `health`, `agriculture`, `education`, with `web_search`:
 
 Open with `<h2>White-space — what the field is moving on that we're not</h2>` and a small caption explaining the cadence. Use `program_corpus[area]` for each area's corpus summary (12 most recent docs).
 
-#### Tuesday / Thursday — Evidence digest → `/tmp/section-evidence.html`
+#### Thursday — Evidence digest (weekly, via Consensus) → `/tmp/section-evidence.html`
 
-For each of the two `evidence_streams` (AI capabilities + Weather/health × AI) with `web_search` restricted to the stream's allowed academic domains:
+Runs **once a week (Thursday only)**. Use the **Consensus academic-search MCP tool** (`...__search` — searches 200M+ peer-reviewed papers across Semantic Scholar / PubMed / Scopus / ArXiv; returns titles, authors, abstracts, citation counts, journal quartile, and source URLs). This replaces the old academic-domain `web_search` hack — it's the real thing now that the connector is live.
 
-> You are doing an evidence pull for 2AI's biweekly briefing in the {stream name} stream. Search the allowed academic domains for papers indexed or published in the last 7 days.
+**Tool-use guidance per stream:**
+- Always set `year_min` to the current year (recent work only) and read the returned abstracts to extract method/sample/effect-size for the card.
+- "AI performance & capabilities" stream: ArXiv-heavy — do NOT exclude preprints.
+- "Weather × AI / Health × AI" stream: set `medical_mode=true` and `study_types=["rct","meta-analysis","systematic review"]` to bias toward strong clinical evidence; only fall back to broader designs if that returns too little.
+
+**Fallback:** if the Consensus tool isn't available in this environment (e.g. a Phase-1 laptop run without the connector), fall back to `web_search` restricted to the stream's `domains` from `evidence_streams`, exactly as before. Either way, keep the output format below.
+
+For each of the two `evidence_streams` (AI capabilities + Weather/health × AI):
+
+> You are doing an evidence pull for 2AI's weekly briefing in the {stream name} stream. Find papers indexed or published recently (this year, ideally last few weeks).
 >
 > Surface 4 items. For each, output:
 > ```html

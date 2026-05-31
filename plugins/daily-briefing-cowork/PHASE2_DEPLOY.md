@@ -101,6 +101,13 @@ git clone --depth 1 "https://x-access-token:${GITHUB_PAT_BRIEFING}@github.com/ja
    happen, then report the failure and the failing step.
 ```
 
+> **Consensus (weekly evidence digest):** the Thursday evidence digest uses
+> the Consensus academic-search MCP tool when available, else falls back to
+> academic `web_search`. For the routine to actually call it, add the
+> Consensus tool to the routine's `allowed_tools` when you arm Phase 2 (the
+> connector is already auto-attached to the routine). Until then the fallback
+> keeps the digest working.
+
 ## Step 3 — Test fire (one-off, ~30 min out)
 
 After the secrets are set, fire a one-off run to validate end-to-end against
