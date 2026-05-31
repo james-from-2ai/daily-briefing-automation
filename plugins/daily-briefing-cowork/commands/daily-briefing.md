@@ -532,6 +532,36 @@ news/funder/whitespace/evidence section HTMLs, check each item against the
 last ~14 days of `state` rows in those sections and drop anything that
 refers to the same underlying event as a recent item.
 
+## Step 3c — Deep-view expand pages (click-to-expand)
+
+Build the two "expand" pages BEFORE rendering so their URLs can be linked
+from the briefing. Each is its own dated, unguessable, noindex page under
+`docs/`; they auto-push with the dashboard (deliver.py globs
+`docs/<today>-*.html`).
+
+**Full Drive change log (deterministic — no synthesis):**
+```bash
+DRIVE_LOG_URL=$(python plugins/daily-briefing-cowork/helpers/build_drive_log.py --days 14)
+```
+Append a link to the Drive-activity section so the briefing points at it:
+```bash
+printf '\n<p style="font-size:13px;"><a href="%s">→ Full Drive change log — last 14 days, every editor, every file →</a></p>\n' "$DRIVE_LOG_URL" >> /tmp/section-drive-audit.html
+```
+
+**Full news sweep (your reasoning + web_search):** After the normal 6-topic
+news section (2f), do a *deeper* sweep — pull more topics from
+`news_topics_text` (Tier 1–3, not just today's 6) and 2–4 sources each, same
+house voice and `<strong>So what for 2AI:</strong>` format, wrapped in
+`<h3>{topic}</h3>`. Open with `<h2>News briefing — full sweep</h2>`. Write it
+to `/tmp/section-news-full.html`, then publish + link it:
+```bash
+NEWS_FULL_URL=$(python plugins/daily-briefing-cowork/helpers/publish_extra_page.py \
+  --title "Full news sweep" --suffix news-full --content-file /tmp/section-news-full.html)
+printf '\n<p style="font-size:13px;"><a href="%s">→ Full news sweep — more topics + sources →</a></p>\n' "$NEWS_FULL_URL" >> /tmp/section-news.html
+```
+Skip the news-full page on low-news days (if you wrote no extra topics, don't
+publish an empty page or add the link).
+
 ## Step 4 — Render artifacts
 
 Now that the section HTMLs are annotated + cleaned and the carryover
