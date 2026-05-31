@@ -70,6 +70,52 @@ def parse_command(text: str) -> tuple[str, object]:
     return ("note_text", rest)
 
 
+def parse_commands(text: str) -> list[tuple[str, object]]:
+    """Parse a reply into one OR MORE commands, so natural batching works:
+
+        'done P1, done D1'  -> [done P1, done D1]
+        'done P1, D1'       -> [done P1, done D1]   (verb applies to all codes)
+        'done P1 and P2'    -> [done P1, done P2]
+        'done p1 s2'        -> [done P1, done S2]   (case-insensitive)
+        'done P1\\ntask P3' -> [done P1, task P3]    (newline / semicolon = new cmd)
+        'note D1 ship it, looks good' -> [note D1 'ship it, looks good']  (text kept whole)
+        'call ronan re retreat'       -> [bare 'call ronan re retreat']  (free text)
+
+    Rules: split on newlines/semicolons into command lines. A done/task line
+    applies its verb to EVERY P/S/D code on that line (commas, 'and', and
+    repeated verbs all just work). A note line takes its whole remainder as
+    the note (commas preserved). A message with NO command verb stays a
+    single free-text suggestion — unchanged from before. Mixing *different*
+    verbs in one comma-joined line isn't supported; put those on separate
+    lines (e.g. 'done P1' then 'task P2').
+    """
+    lines = [l.strip() for l in re.split(r"[\n;]+", text or "") if l.strip()]
+    if not any(_CMD_RE.match(l) for l in lines):
+        return [("bare", (text or "").strip())]
+    cmds: list[tuple[str, object]] = []
+    for line in lines:
+        m = _CMD_RE.match(line)
+        if not m:
+            cmds.append(("bare", line))
+            continue
+        verb, rest = m.group(1).lower(), m.group(2).strip()
+        if verb == "note":
+            cm = _CODE_RE.match(rest)
+            if cm:
+                code = cm.group(1).upper()
+                cmds.append(("note_code", (code, rest[len(code):].strip())))
+            else:
+                cmds.append(("note_text", rest))
+            continue
+        codes = re.findall(r"\b([PSD]\d+)\b", rest, re.I)
+        if codes:
+            for code in codes:
+                cmds.append((f"{verb}_code", code.upper()))
+        else:
+            cmds.append((f"{verb}_text", rest))
+    return cmds
+
+
 def _load_slack_items_map(sheets) -> dict[str, dict]:
     """Today's code→{key,type,title} map from the slack_items tab."""
     try:
@@ -387,44 +433,44 @@ def main() -> None:
         print(f"  + suggest ({section}): {title[:80]}", file=sys.stderr)
 
     for m in msgs:
-        kind, arg = parse_command(m["text"])
-        if kind == "done_code":
-            item = code_map.get(arg)
-            if item and item.get("key"):
-                _append_ack(sheets, item["key"], args.dry_run)
-                print(f"  ✓ done {arg}: {item.get('title','')[:60]}", file=sys.stderr)
-            else:
-                print(f"  ? done {arg}: unknown code (no item today) — "
-                      f"logging as suggestion", file=sys.stderr)
-                _propose(m["text"], m["ts"], "slack-reply")
-        elif kind == "done_text":
-            tid = _fuzzy_task_id(arg, active_tasks)
-            if tid:
-                _append_ack(sheets, tid, args.dry_run)
-                print(f"  ✓ done (task {tid}) from: {arg[:60]}", file=sys.stderr)
-            else:
-                print(f"  ? done: no task matched {arg[:60]!r} — suggesting",
-                      file=sys.stderr)
+        # One reply may carry several commands ("done P1, done D1").
+        for kind, arg in parse_commands(m["text"]):
+            if kind == "done_code":
+                item = code_map.get(arg)
+                if item and item.get("key"):
+                    _append_ack(sheets, item["key"], args.dry_run)
+                    print(f"  ✓ done {arg}: {item.get('title','')[:60]}", file=sys.stderr)
+                else:
+                    print(f"  ? done {arg}: unknown code (not in today's "
+                          f"action list) — skipping", file=sys.stderr)
+            elif kind == "done_text":
+                tid = _fuzzy_task_id(arg, active_tasks)
+                if tid:
+                    _append_ack(sheets, tid, args.dry_run)
+                    print(f"  ✓ done (task {tid}) from: {arg[:60]}", file=sys.stderr)
+                else:
+                    print(f"  ? done: no task matched {arg[:60]!r} — suggesting",
+                          file=sys.stderr)
+                    _propose(arg, m["ts"], "slack-reply")
+            elif kind == "task_code":
+                item = code_map.get(arg)
+                if item and item.get("title"):
+                    _propose(item["title"], m["ts"], "slack-task")
+                else:
+                    print(f"  ? task {arg}: unknown code — skipping", file=sys.stderr)
+            elif kind == "task_text":
+                _propose(arg, m["ts"], "slack-task")
+            elif kind == "note_code":
+                code, note_text = arg
+                item = code_map.get(code) or {}
+                _post_comment(item.get("key", ""), item.get("type", "slack"),
+                              note_text, args.dry_run)
+                print(f"  📝 note on {code}: {note_text[:60]}", file=sys.stderr)
+            elif kind == "note_text":
+                _post_comment("", "slack", arg, args.dry_run)
+                print(f"  📝 note: {arg[:60]}", file=sys.stderr)
+            else:  # bare — free text becomes a single task suggestion
                 _propose(arg, m["ts"], "slack-reply")
-        elif kind == "task_code":
-            item = code_map.get(arg)
-            if item and item.get("title"):
-                _propose(item["title"], m["ts"], "slack-task")
-            else:
-                _propose(m["text"], m["ts"], "slack-task")
-        elif kind == "task_text":
-            _propose(arg, m["ts"], "slack-task")
-        elif kind == "note_code":
-            code, note_text = arg
-            item = code_map.get(code) or {}
-            _post_comment(item.get("key", ""), item.get("type", "slack"),
-                          note_text, args.dry_run)
-            print(f"  📝 note on {code}: {note_text[:60]}", file=sys.stderr)
-        elif kind == "note_text":
-            _post_comment("", "slack", arg, args.dry_run)
-            print(f"  📝 note: {arg[:60]}", file=sys.stderr)
-        else:  # bare — unchanged default: free-text becomes a suggestion
-            _propose(m["text"], m["ts"], "slack-reply")
 
     _append_proposals(sheets, rows, args.dry_run)
     # Advance cursor to the latest ts even if we capped at MAX_PER_RUN —

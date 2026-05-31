@@ -130,6 +130,14 @@ replies. If replies aren't being picked up, check, in order:
 4. **Bot scopes** (no user-token scopes needed): `im:history`, `im:read`,
    `im:write`, `chat:write`. All present by default.
 
+**Command syntax** (flexible — `parse_commands`): one reply can carry
+several commands. `done P1, done D1`, `done P1, D1`, `done P1 and P2`,
+`done p1 s2` all mark every listed code done. Newlines/semicolons separate
+different commands (`done P1` ⏎ `task P3` ⏎ `note S1 pinged sarah`). A
+`note` keeps its whole text (commas preserved). Free text with no command
+verb → one task suggestion (unchanged). Don't mix *different* verbs in one
+comma-joined line — use separate lines for those.
+
 Note: replies often arrive as **thread replies**, not top-level DM messages
 — `scrape_slack_replies.py` walks threads on the bot's posts, so both work.
 Reinstalling the same workspace keeps the bot token, so `SLACK_BOT_TOKEN`
