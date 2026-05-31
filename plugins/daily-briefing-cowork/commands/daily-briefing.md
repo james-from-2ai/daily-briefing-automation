@@ -125,6 +125,20 @@ yourself. Keep this in working context — you reference it across sections.
 
 The inputs JSON includes a `recently_dismissed` list: items James has already marked done or acknowledged via the dashboard. **This is binding.** When synthesizing priorities, decisions-needed, slip flags, inbox, and 2AI ideas, check each item you're about to surface against this list. If it matches something already dismissed — even with different wording (e.g. "Invite Tessa to retreat" ≡ "Should we invite Tessa?") — **suppress it**, UNLESS the underlying situation has materially changed since dismissal (a new deadline, a new blocker, a reply that reopens it). When in doubt, leave it out — re-surfacing dismissed items is the single most annoying failure mode of this briefing. The carryover machinery (persist_state.py) handles state-level suppression by key, but it can't catch reworded re-derivations from source inputs — that's your job here.
 
+### Cross-section dedup (binding)
+
+James's #1 complaint about the reading sections is **overlap/repetition** — the same item showing up as a Top Priority *and* a Decision *and* a Calendar prep cue *and* an Inbox item. Each real-world item gets **exactly ONE canonical home** across the *reading* sections (priorities / overreach / slip / decisions / calendar prep / inbox). After you've drafted those sections, do a reconciliation sweep: for any item that appears in more than one, keep it in the single best home (below) and **remove it from the others** (a one-line cross-reference like "<em>(see Top Priorities)</em>" is fine if the connection matters).
+
+Canonical-home priority, highest wins:
+1. **Inbox** — if it's fundamentally an email thread awaiting your reply/decision, it lives here (not also in Decisions).
+2. **Decisions needed** — a blocking decision that is NOT primarily an inbox thread.
+3. **Top priorities** — your own execution work. If a priority maps to a meeting, name the meeting inline here; then **Calendar prep cues only lists meetings whose prep isn't already a priority** (otherwise reference it, don't restate).
+4. **Likely to slip** — at-risk items. Don't also list the same thing as a priority unless the slip angle is genuinely distinct.
+
+Worked example (today's failure mode): the "2AI retreat agenda" was a real inbox thread from Yoni → it belongs in **Inbox → reply/decide** only, NOT also in "Decisions needed." Pick one.
+
+**Exempt — these are action surfaces, not reading sections, and are SUPPOSED to re-list items:** the task-proposals write-back (Step 3d) and the Slack action list (Step 5) intentionally aggregate priorities + slips + decisions into clickable codes. Do not strip those.
+
 ## Step 1b — Build the widget strip (poem + HSK4 + weather/stocks)
 
 This renders the top-of-briefing strip (and restores the weather/stocks
@@ -504,6 +518,8 @@ Detect "first weekday of month": `today.day <= 7 AND today.weekday() < 5 AND no 
 > Output HTML fragment only. Start with `<h2>Peer publisher landscape — last 60 days</h2>`. No padding.
 
 ## Step 3 — Persist state (annotate + dedup + carryover)
+
+**First — cross-section dedup sweep.** All reading sections are now drafted, so apply the **Cross-section dedup (binding)** rule from above: re-read your priorities + decisions + slip + calendar-prep + inbox files and remove any item that's duplicated across them, keeping each in its single canonical home. Do this *before* persist_state runs (it annotates these files in place).
 
 After you've written each section's raw HTML to `/tmp/section-*.html`,
 run persist_state.py. It will rewrite those files in place with the
