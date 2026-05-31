@@ -571,6 +571,34 @@ printf '\n<p style="font-size:13px;"><a href="%s">→ Full news sweep — more t
 Skip the news-full page on low-news days (if you wrote no extra topics, don't
 publish an empty page or add the link).
 
+## Step 3d — Propose tasks from slips + decisions (write-back)
+
+Close the loop so slips and blocking decisions don't rely on you clicking
+📌 per item. From your finalized prioritization (2b), take the **"Likely to
+slip"** and **"Decisions needed from James"** items. For each genuinely
+actionable one that is NOT in `recently_dismissed`, emit an object:
+
+```jsonc
+// /tmp/briefing-task-proposals.json
+[
+  {"title": "Send Gates RFP cyber section to Kanika", "section": "slip", "urgency": "high"},
+  {"title": "Decide Mariam start date (June 1 vs 15)", "section": "decision", "urgency": "high"}
+]
+```
+
+Titles must be short + imperative (they become task titles). Then:
+```bash
+python plugins/daily-briefing-cowork/helpers/propose_tasks_from_briefing.py \
+  --proposals-file /tmp/briefing-task-proposals.json
+```
+
+These land in the SAME `task_proposals` tab the dashboard 📌 button feeds,
+so they appear in the tasks-live "💡 Suggested tasks" section with ✅/✕.
+**Nothing is auto-added to tasks.json** — `sync_feedback_to_tasks.py` only
+promotes the ones you ✅. The helper dedups by a stable key, so the same
+slip won't be re-proposed tomorrow. If there are no actionable slips/
+decisions, write `[]` (or skip the step).
+
 ## Step 4 — Render artifacts
 
 Now that the section HTMLs are annotated + cleaned and the carryover
