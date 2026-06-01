@@ -26,6 +26,26 @@ function Write-Log([string]$msg) {
 }
 "=== cowork briefing run started $(Get-Date -Format 'u') ===" | Out-File $LogFile -Encoding utf8
 
+# Clear stale briefing intermediates from prior runs BEFORE the run starts.
+# Two bugs this prevents: (1) a cadence section that doesn't run today
+# leaking yesterday's content into the briefing, and (2) annotated section
+# files accumulating duplicate feedback rows on re-annotation. Runs ONCE
+# here, before the attempt loop — retries use --continue and must keep the
+# in-progress files, so we never clear inside the loop. Scoped to specific
+# briefing filenames in the temp dir the skill's helpers write to (which is
+# the same dir the agent's bash resolves /tmp to on this machine). The skill
+# itself also clears these on a fresh run; this is the deterministic backstop.
+$StalePatterns = @(
+    'section-*.html', 'section-*.txt', 'briefing-inputs.json',
+    'briefing-email.html', 'briefing-dashboard.html', 'dashboard-url.txt',
+    'carry-count.txt', 'items-count.txt', 'source-proposals.json',
+    'briefing-task-proposals.json', 'slack-action-items.json'
+)
+foreach ($pat in $StalePatterns) {
+    Remove-Item -Path (Join-Path $env:TEMP $pat) -Force -ErrorAction SilentlyContinue
+}
+Write-Log "cleared stale briefing intermediates in $env:TEMP"
+
 # Fail-loud helper: write to log AND DM Slack so a broken cron run can't
 # vanish silently. Reuses daily_briefing.alert_slack_failure (which already
 # knows our user ID + token convention). Paths go through env vars to

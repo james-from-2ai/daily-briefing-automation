@@ -27,9 +27,24 @@ mutates the section HTMLs in place (injecting 👍/👎 + action buttons,
 stripping duped blocks) and emits the carryover block — both feed into
 render_html.
 
-## Step 0 — Detect phase + bootstrap (Phase 2 only)
+## Step 0 — Clear stale temp, detect phase + bootstrap
 
-Read the `BRIEFING_IO_LAYER` env var:
+**First, clear leftover intermediates from any previous run.** The cowork
+flow reuses fixed `/tmp/section-*.html` paths and `/tmp` persists between
+runs, so stale files would otherwise (a) leak a cadence section that
+*didn't* run today (e.g. yesterday's evidence digest) into today's briefing,
+and (b) let annotated files accumulate duplicate feedback rows. Run this
+once at the very start (only on a fresh run — if you're resuming via
+`--continue`, skip it so in-progress work isn't wiped):
+
+```bash
+rm -f /tmp/section-*.html /tmp/section-*.txt /tmp/briefing-inputs.json \
+      /tmp/briefing-email.html /tmp/briefing-dashboard.html /tmp/dashboard-url.txt \
+      /tmp/carry-count.txt /tmp/items-count.txt /tmp/source-proposals.json \
+      /tmp/briefing-task-proposals.json /tmp/slack-action-items.json
+```
+
+Then read the `BRIEFING_IO_LAYER` env var:
 - **unset or `local`** → **Phase 1** (laptop / Task Scheduler). Skip this
   step entirely; creds + git auth already exist on the machine. Go to Step 1.
 - **anything else** (`remote`, `mcp`) → **Phase 2** (Anthropic scheduled
