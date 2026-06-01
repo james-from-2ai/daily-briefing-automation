@@ -48,11 +48,31 @@ from daily_briefing import (  # noqa: E402
 )
 
 
+# Annotation appends a feedback widget per item; if a section file is read
+# back already-annotated (the cowork flow reuses /tmp/section-*.html paths,
+# and /tmp persists between runs on the laptop), re-annotating would STACK a
+# second 👍/👎 row + action strip per item — growing by one row per day. Strip
+# any existing widget markup on read so annotation is idempotent: one row.
+_WIDGET_RE = re.compile(
+    r'\s*<div class="thumbs"[^>]*>.*?</div>'
+    r'|\s*<span class="action-widgets">.*?</span>',
+    re.S | re.I,
+)
+
+
+def _strip_widgets(html: str) -> str:
+    return _WIDGET_RE.sub("", html) if html else html
+
+
 def _read(path: str | None) -> str:
     if not path:
         return ""
     p = Path(path)
-    return p.read_text(encoding="utf-8") if p.exists() else ""
+    if not p.exists():
+        return ""
+    # Strip stale annotation so a reused/already-annotated file doesn't
+    # accumulate duplicate feedback rows on re-run.
+    return _strip_widgets(p.read_text(encoding="utf-8"))
 
 
 def _write(path: str | None, content: str) -> None:
