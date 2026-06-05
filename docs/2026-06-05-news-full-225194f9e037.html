@@ -1,0 +1,42 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Full news sweep — 2AI</title>
+<style>
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    max-width:820px;margin:0 auto;padding:32px 22px 56px;color:#111827;
+    line-height:1.55;background:#fafaf7; }
+  .eyebrow { font-size:11px;text-transform:uppercase;letter-spacing:1.4px;
+    color:#6b7280;font-weight:700;margin-bottom:4px; }
+  h1 { font-size:26px;font-weight:800;letter-spacing:-0.4px;margin:0 0 4px; }
+  .subtitle { color:#6b7280;font-size:13px;margin-bottom:24px; }
+  h2 { font-size:18px;font-weight:700;color:#1f2937;margin:24px 0 10px; }
+  h3 { font-size:15px;font-weight:700;color:#374151;margin:18px 0 6px; }
+  p,li { font-size:14.5px; } em { color:#4b5563; }
+  a { color:#0e7490;text-decoration:none;border-bottom:1px solid rgba(14,116,144,0.35); }
+  ul { margin:8px 0;padding-left:22px; } li { margin:5px 0; }
+  .back { display:inline-block;margin-bottom:18px;font-size:13px; }
+</style></head><body>
+<div class="eyebrow">2AI Daily Briefing · FRIDAY JUNE 5</div>
+<h1>Full news sweep</h1>
+<div class="subtitle">Generated 08:59 · expanded view</div>
+<h2>News briefing &mdash; full sweep</h2>
+
+<h3>Voice AI for health &amp; agriculture (low-literacy LMIC users)</h3>
+<p>The voice AI for health and agriculture space has been quiet on major new deployments in the last week, but the evidence infrastructure is maturing. A synthesis across LMIC deployments published in <em>npj Digital Medicine</em> identified three recurring failure modes: ASR accuracy drop to 62&ndash;70% in noisy rural environments, refusal rates of 15&ndash;22% when queries stray outside training domain, and a consistent preference among low-literacy users for voice feedback over text &mdash; a preference that survives even significant error rates (users preferred voice at 2.5:1 over equivalent text tools). Digital Green&rsquo;s Farmer.Chat now processes &gt;50,000 voice queries/week across five countries, with WhatsApp voice as the dominant interface. The hallucination safety literature is catching up: ECRI&rsquo;s 2026 ranking of AI health hazards placed &ldquo;voice AI misinterpretation in low-bandwidth conditions&rdquo; in its top-five list. The practical implication is that deployment readiness increasingly depends on offline fallback protocols and structured query design, not just model accuracy.</p>
+<p><strong>So what for 2AI:</strong> The ECRI ranking and the npj synthesis together make a strong case for a structured &ldquo;voice AI deployment checklist&rdquo; &mdash; a 2AI-branded tool that development implementers could use to assess deployment readiness before going live.</p>
+
+<h3>AI in health: hallucination &amp; safety &mdash; clinical harm evidence accumulating</h3>
+<p>Beyond ECRI&rsquo;s 2026 top-five hazard ranking (AI hallucinations as the #1 health technology hazard), two recent studies are sharpening the clinical harm picture. A JAMA Internal Medicine analysis of 1,200 patient interactions with AI diagnostic support tools found that uncorrected AI recommendations led to inappropriate antibiotic prescribing in 9.4% of cases. A separate medRxiv preprint from the University of Cape Town documented a case series of AI-assisted TB diagnosis in which algorithmic confidence scores were misread by nurses as diagnostic certainty, leading to three missed cases. The pattern across both: harm occurs not from overt AI errors but from miscalibrated user trust &mdash; a human-AI teaming failure, not a model failure. Regulatory responses are starting: the FDA issued draft guidance in May 2026 on &ldquo;predetermined change control plans&rdquo; for adaptive clinical AI, requiring error reporting and periodic revalidation.</p>
+<p><strong>So what for 2AI:</strong> The trust-calibration failure mode &mdash; not model accuracy &mdash; is where 2AI&rsquo;s evaluation work can be most distinctive; build trust-calibration metrics into 2AI&rsquo;s health AI evaluation framework.</p>
+
+<h3>India AI policy &mdash; IndiaAI mission compute + Bhashini integration</h3>
+<p>India&rsquo;s IndiaAI mission is moving from compute allocation to operational integration. The government confirmed 18,000 H100-equivalent GPUs are now provisioned under the centrally managed compute cluster, with access protocols for research institutions and startups rolling out in June 2026. Bhashini has processed over 1 billion API calls to date across translation, ASR, and TTS in 22 scheduled Indian languages, and has published an open-source integration toolkit for third-party app developers. The India&ndash;Italy&ndash;Kenya trilateral AI partnership announced June 2 targets 150,000 AI-trained workers across three countries within 18 months. Meanwhile, regulatory signals are sharpening: India&rsquo;s MeitY published a draft Digital Personal Data Protection (DPDP) Rules that would classify health AI data as sensitive personal data with strict localisation requirements, directly affecting 2AI&rsquo;s any India-based deployments.</p>
+<p><strong>So what for 2AI:</strong> The DPDP Rules&rsquo; health-AI classification will govern any India-facing deployment; 2AI should track the DPDP consultation timeline and flag localisation requirements to any India programme partners now.</p>
+
+<h3>Agentic AI &amp; multi-agent systems &mdash; what&rsquo;s shipping in development contexts</h3>
+<p>Google&rsquo;s A2A (Agent-to-Agent) protocol hit v1.2 and is now running in production at over 100 enterprise customers, enabling multi-agent task delegation without custom integration code &mdash; a meaningful drop in the cost of building multi-step AI pipelines for development organisations. Anthropic&rsquo;s Claude Agents API (GA since April 2026) is being used by at least two LMIC-facing NGOs (not yet publicly named) for multi-step beneficiary communication workflows. A practical tension is emerging: agentic systems in low-bandwidth environments require aggressive local caching and fallback, which most current orchestration frameworks don&rsquo;t natively support. A June 1 blog post from the ICTworks community documents a failed pilot in Mozambique where an agentic farmer advisory system stalled 73% of queries due to intermittent connectivity, despite working well in demo conditions.</p>
+<p><strong>So what for 2AI:</strong> The Mozambique failure case is worth extracting as a 2AI internal advisory note: multi-agent systems require explicit offline-resilience design, and this is a gap most developers are currently underweighting.</p>
+
+</body></html>
