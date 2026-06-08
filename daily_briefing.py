@@ -469,8 +469,9 @@ def pull_drive_recent(creds):
 # Wider lookback than pull_drive_recent's 30h since this is the "what's
 # everyone been working on" view, not the "what changed overnight" view.
 DRIVE_AUDIT_LOOKBACK_DAYS = 7
-DRIVE_AUDIT_TOP_EDITORS = 6
-DRIVE_AUDIT_DOCS_PER_EDITOR = 5
+DRIVE_AUDIT_TOP_EDITORS = 6        # (legacy; render now caps by total files)
+DRIVE_AUDIT_DOCS_PER_EDITOR = 5   # (legacy; kept for any external callers)
+DRIVE_AUDIT_MAX_FILES = 50        # total file changes shown in the section
 # Recognised stakeholders — keys are email-prefix or displayName lower-cased
 # fragments we surface as the canonical group label. Files modified by
 # anyone NOT in this list still get counted under "other".
@@ -553,30 +554,37 @@ def pull_drive_audit(creds, lookback_days: int = DRIVE_AUDIT_LOOKBACK_DAYS) -> d
 
 
 def render_drive_audit(audit: dict) -> str:
-    """Render the Drive-audit dict as an HTML section. Top editors by
-    activity, with their top docs each. Empty string if no activity."""
+    """Render the Drive-audit dict as an HTML section: editors ranked by
+    change volume (most changes first), each editor's files newest-first,
+    capped at DRIVE_AUDIT_MAX_FILES total changes across the window. Empty
+    string if no activity."""
     by_editor = audit.get("by_editor") or {}
     if not by_editor:
         return ""
-    # Rank editors by file count (desc), break ties by most recent edit.
+    # Rank editors by change volume (desc), tie-break by most-recent edit.
     def sort_key(entry):
         edits = entry[1]
         latest = max((e.get("modifiedTime", "") for e in edits), default="")
-        return (-len(edits), -ord(latest[0]) if latest else 0, latest)
-    ranked = sorted(by_editor.items(), key=sort_key)[:DRIVE_AUDIT_TOP_EDITORS]
+        return (-len(edits), latest)
+    ranked = sorted(by_editor.items(), key=sort_key)   # ALL editors, volume desc
 
     lookback = audit.get("lookback_days", DRIVE_AUDIT_LOOKBACK_DAYS)
+    total_files = audit.get("total_files", 0)
     parts = [f'<h2>📁 Shared Drive activity — last {lookback} days</h2>']
     parts.append(
         '<p style="font-size:12.5px;color:#6b7280;margin:0 0 12px 0;">'
-        f"Top {len(ranked)} stakeholders by file activity, with up to "
-        f"{DRIVE_AUDIT_DOCS_PER_EDITOR} most-recent docs each. "
-        f"({audit.get('total_files', 0)} files modified in window.)</p>"
+        f"Editors ranked by change volume, newest first within each. "
+        f"Showing up to {DRIVE_AUDIT_MAX_FILES} of {total_files} file"
+        f"{'s' if total_files != 1 else ''} changed in the window.</p>"
     )
+    shown = 0
     for editor, edits in ranked:
+        if shown >= DRIVE_AUDIT_MAX_FILES:
+            break
+        budget = DRIVE_AUDIT_MAX_FILES - shown
         edits_sorted = sorted(edits,
                               key=lambda e: e.get("modifiedTime", ""),
-                              reverse=True)[:DRIVE_AUDIT_DOCS_PER_EDITOR]
+                              reverse=True)[:budget]
         parts.append(
             f'<h3 style="margin-top:14px;font-size:14px;color:#111827;">'
             f'{editor} <span style="color:#6b7280;font-size:11px;'
@@ -599,7 +607,14 @@ def render_drive_audit(audit: dict) -> str:
                 f'<li><a href="{link}">{name}</a>{kind} '
                 f'<span style="color:#9ca3af;font-size:11px;">· {mt}</span></li>'
             )
+        # Note when an editor's list was truncated by the global cap.
+        if len(edits) > len(edits_sorted):
+            parts.append(
+                f'<li style="color:#9ca3af;list-style:none;">…and '
+                f'{len(edits) - len(edits_sorted)} more from {editor}</li>'
+            )
         parts.append("</ul>")
+        shown += len(edits_sorted)
     return "\n".join(parts)
 
 
