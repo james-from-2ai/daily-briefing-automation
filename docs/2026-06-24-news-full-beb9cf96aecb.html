@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Full news sweep — 2AI</title>
+<style>
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    max-width:820px;margin:0 auto;padding:32px 22px 56px;color:#111827;
+    line-height:1.55;background:#fafaf7; }
+  .eyebrow { font-size:11px;text-transform:uppercase;letter-spacing:1.4px;
+    color:#6b7280;font-weight:700;margin-bottom:4px; }
+  h1 { font-size:26px;font-weight:800;letter-spacing:-0.4px;margin:0 0 4px; }
+  .subtitle { color:#6b7280;font-size:13px;margin-bottom:24px; }
+  h2 { font-size:18px;font-weight:700;color:#1f2937;margin:24px 0 10px; }
+  h3 { font-size:15px;font-weight:700;color:#374151;margin:18px 0 6px; }
+  p,li { font-size:14.5px; } em { color:#4b5563; }
+  a { color:#0e7490;text-decoration:none;border-bottom:1px solid rgba(14,116,144,0.35); }
+  ul { margin:8px 0;padding-left:22px; } li { margin:5px 0; }
+  .back { display:inline-block;margin-bottom:18px;font-size:13px; }
+</style></head><body>
+<div class="eyebrow">2AI Daily Briefing · WEDNESDAY JUNE 24</div>
+<h1>Full news sweep</h1>
+<div class="subtitle">Generated 07:53 · expanded view</div>
+<h2>News briefing &mdash; full sweep</h2>
+<p><em>Additional topics beyond the daily 6 &mdash; deeper coverage across Tier 1&ndash;3 topics.</em></p>
+
+<h3>Agentic AI at enterprise scale &mdash; Google Cloud Next + Anthropic MCP tunnels</h3>
+<p>Google Cloud Next 2026 rebranded Vertex AI to the Gemini Enterprise Agent Platform and launched Workspace Studio (no-code agent builder), with 200+ models including Anthropic Claude natively in the Model Garden. Anthropic shipped MCP tunnels allowing Claude agents to reach private-network MCP servers without public internet exposure, and self-hosted code execution sandboxes for full data sovereignty. Anthropic&rsquo;s 2026 Agentic Coding Trends Report finds Claude Code has become the dominant enterprise AI coding tool. A2A protocol is now in production at 150+ organizations. <a href="https://thenextweb.com/news/google-cloud-next-ai-agents-agentic-era">The Next Web: Google Cloud Next 2026</a><br><strong>So what for 2AI:</strong> MCP tunnels + self-hosted sandboxes directly answer the data-sovereignty objection from government and health-system partners who can&rsquo;t put patient data through Anthropic&rsquo;s cloud. This is the infrastructure argument for a CDSS pilot in a regulated LMIC health system.</p>
+
+<h3>AI for agriculture &mdash; FarmerChat 600K users; IFPRI/Digital Green GAIA project</h3>
+<p>Digital Green&rsquo;s FarmerChat has surpassed 600,000 users across 120 countries in 14 languages. In Kenya specifically, 60 Decibels research (2026) found 61% of Kenyan farmers using FarmerChat&rsquo;s services meaningfully vs. a 27% Kenya benchmark; female farmer NPS is 75 vs. 57 for male (suggesting the tool is closing a gender advisory gap). Under the GAIA project, IFPRI and Digital Green are running a Phase I test of generative AI agricultural advisories in India and Kenya, examining accuracy, relevance, and inclusivity. The AIEP Initiative technical paper (Gates/GIZ/CLEAR Global) published detailed deployment learnings. <a href="https://digitalgreen.org/farmer.chat/">Digital Green FarmerChat</a> &middot; <a href="https://arxiv.org/html/2601.11537v1">AIEP technical learnings (arXiv)</a><br><strong>So what for 2AI:</strong> The gender advisory gap finding (NPS 75 vs 57) is the most novel signal here &mdash; it hasn&rsquo;t appeared in 2AI&rsquo;s agriculture corpus. The Agriculture Substack piece (currently in draft) should incorporate this as a concrete gender-equity angle that goes beyond generic &ldquo;AI for farmers&rdquo; framing.</p>
+
+<h3>On-device LLMs crossing the last-mile threshold &mdash; Gemma 4 + MedGemma</h3>
+<p>Gemma 4 E2B/E4B models are now deployable on mobile and edge devices (the edge-lm library ships at 1.44GB). MedGemma shows a 15.7 percentage point accuracy advantage over base Gemma with self-consistency voting on medical tasks &mdash; growing from 4.6pp with direct prompting. A February 2026 comparative performance analysis of on-device LLMs for clinical reasoning (arXiv) found that Gemma-3 27B enables fully offline medical decision support. The economics paper from medRxiv finds on-device inference cost per query is now in the range that makes CHW-level deployment cost-competitive with simple app queries. <a href="https://github.com/TheStageAI/edge-lm">edge-lm library (GitHub)</a> &middot; <a href="https://arxiv.org/pdf/2502.08954">On-device LLMs clinical reasoning (arXiv)</a><br><strong>So what for 2AI:</strong> The 2AI ideas log has proposed a Gemma 3n/4 offline CHW-support prototype spec 4+ times since May 24. The technical feasibility case is now airtight: Gemma 4 E2B at 1.44GB + 15.7pp MedGemma advantage + offline operation = a convincing spec. Write the 1-page prototype spec this week &mdash; it becomes the anchor for a funder conversation on offline-first health AI.</p>
+
+<h3>Multilingual AI &mdash; African language stack + Sarvam 105B</h3>
+<p>The LINGUA Africa programme (Gates/Microsoft/Google.org/Masakhane) offered open calls for up to 50K for African language AI projects &mdash; the deadline has likely passed but the programme signals sustained funding. UCT MzansiLM covers South African languages; the Zindi Multilingual AI for Health Challenge has a prototype competition for Swahili health QA. Sarvam AI&rsquo;s 105B voice-first model (for complex reasoning) and 30B model are now open-weight and cover India&rsquo;s major languages; Bhashini crossed 600 crore inferences. Masakhane remains the primary anchor for East/West African language coverage. <a href="https://www.povertyactionlab.org/initiative/evidence-ai-health-evah-rfp">EVAH RFP (which requires local language tool evaluation)</a><br><strong>So what for 2AI:</strong> Any EVAH Pathway A/B submission will need to address the language-tool layer. 2AI&rsquo;s comparative advantage is not building language models but specifying which existing model (Masakhane, MedGemma, Sarvam) is the right fit for a specific deployment context. A 1-page model-selection brief for LMIC health CDSTs would sharpen every funder pitch.</p>
+
+</body></html>

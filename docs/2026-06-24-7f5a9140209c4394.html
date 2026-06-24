@@ -1,0 +1,412 @@
+<!doctype html>
+        <html><head><meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow, noarchive">
+        <title>2AI daily briefing — 2026-06-24</title>
+        <style>
+          /* Axios smart-brevity, color-coded section cards. */
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                         "Helvetica Neue", sans-serif;
+            max-width: 760px; margin: 0 auto; padding: 32px 22px 48px;
+            color: #111827; line-height: 1.55; background: #fafaf7;
+          }
+          .eyebrow {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px;
+            color: #6b7280; font-weight: 700; margin-bottom: 4px;
+          }
+          h1.title {
+            font-size: 30px; line-height: 1.15; margin: 0 0 4px 0;
+            font-weight: 800; letter-spacing: -0.5px; color: #111827;
+          }
+          .subtitle { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
+          h2 {
+            font-size: 19px; font-weight: 700; margin: 0 0 12px 0;
+            letter-spacing: -0.2px; color: #1f2937;
+          }
+          h3 {
+            font-size: 15px; font-weight: 700; margin: 18px 0 6px 0;
+            color: #374151;
+          }
+          p, li { font-size: 14.5px; }
+          em { color: #4b5563; font-style: italic; }
+          a {
+            color: #0e7490; text-decoration: none;
+            border-bottom: 1px solid rgba(14,116,144,0.35);
+          }
+          a:hover { border-bottom-color: #0e7490; }
+          ul { margin: 8px 0; padding-left: 22px; }
+          li { margin: 5px 0; }
+          strong { color: #111827; }
+
+          /* TL;DR strip — Axios's signature yellow */
+          .tldr {
+            background: #fef3c7; border-left: 4px solid #d97706;
+            padding: 14px 18px; border-radius: 8px; margin: 0 0 22px 0;
+            font-size: 14.5px; line-height: 1.5;
+          }
+          .tldr-label {
+            display: inline-block; background: #d97706; color: #fff;
+            font-size: 10px; font-weight: 700; letter-spacing: 1.4px;
+            padding: 3px 9px; border-radius: 4px; margin-right: 10px;
+            vertical-align: 2px;
+          }
+
+          /* "Mark today as seen" banner */
+          .ack-banner {
+            background: #ecfdf5; border-left: 4px solid #10b981;
+            border-radius: 6px; padding: 11px 16px; margin: 0 0 22px 0;
+            font-size: 13px; color: #064e3b;
+          }
+          .ack-banner-note { color: #6b7280; margin-left: 8px; font-size: 12px; }
+
+          /* Section cards — color-coded left accent + heading color.
+             Each section's <h2> inside the card adopts its accent color. */
+          .card {
+            background: #ffffff; border-radius: 10px;
+            padding: 18px 22px; margin: 18px 0;
+            border-left: 4px solid #94a3b8;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+          }
+          .card > h2:first-child { margin-top: 0; }
+          .card > h2 ~ h2 { margin-top: 26px; }
+
+          .card-priorities { border-left-color: #1e3a8a; }
+          .card-priorities h2 { color: #1e3a8a; }
+          .card-inbox      { border-left-color: #475569; }
+          .card-inbox h2   { color: #475569; }
+          .card-funder     { border-left-color: #b45309; }
+          .card-funder h2  { color: #b45309; }
+          .card-news       { border-left-color: #0e7490; }
+          .card-news h2    { color: #0e7490; }
+          .card-evidence   { border-left-color: #15803d; }
+          .card-evidence h2 { color: #15803d; }
+          .card-whitespace { border-left-color: #6d28d9; }
+          .card-whitespace h2 { color: #6d28d9; }
+          .card-trends     { border-left-color: #6d28d9; }
+          .card-trends h2  { color: #6d28d9; }
+          .card-publisher  { border-left-color: #6d28d9; }
+          .card-publisher h2 { color: #6d28d9; }
+          .card-sources    { border-left-color: #475569; }
+          .card-sources h2 { color: #475569; }
+          .card-ideas      { border-left-color: #be185d; }
+          .card-ideas h2   { color: #be185d; }
+          .card-sourcestoday { border-left-color: #475569; }
+          .card-sourcestoday h2 { color: #475569; }
+
+          /* "So what for 2AI:" callout — the synth prompts already emit
+             this as <strong>So what for 2AI:</strong> followed by text.
+             We can't pattern-match text in pure CSS, so we just style
+             every <strong> in section cards with a subtle accent. */
+          .card p strong:first-child { color: inherit; }
+
+          /* Footer */
+          .feedback-footer {
+            margin-top: 32px; padding: 18px 20px;
+            background: #f1f5f9; border-radius: 10px;
+            font-size: 13.5px; color: #334155;
+            border-left: 4px solid #94a3b8;
+          }
+          .feedback-meta {
+            color: #6b7280; font-size: 12px; margin-top: 6px;
+          }
+        </style>
+        </head><body>
+        <div class="eyebrow">2AI Daily Briefing · WEDNESDAY JUNE 24</div>
+        <h1 class="title">Morning, James.</h1>
+        <div class="subtitle">Generated 7:54 AM · auto-piloted</div>
+<div class="dashboard-banner" style="background:#dbeafe;border-left:4px solid #2563eb;padding:10px 14px;border-radius:6px;margin:0 0 18px 0;font-size:13px;color:#1e3a8a;"><strong>🎛 Interactive dashboard.</strong> All buttons fire in-page — no popups. <span style="color:#475569;">Closes when you do.</span></div>
+        <div style="background:#dbeafe;border-left:4px solid #2563eb;padding:12px 16px;border-radius:6px;margin:0 0 18px 0;font-size:13.5px;color:#1e3a8a;"><strong>🎛 Interactive dashboard.</strong> <a href="https://james-from-2ai.github.io/daily-briefing-automation/2026-06-24-7f5a9140209c4394.html" style="color:#1e40af;font-weight:600;">Open in-page version →</a><div style="font-size:12px;color:#475569;margin-top:4px;">Click 👍/👎, leave comments, and send items to your task list — all in one tab, no popups.</div><div style="font-size:12px;color:#475569;margin-top:6px;">📋 <a href="https://james-from-2ai.github.io/daily-briefing-automation/tasks-live.html" style="color:#1e40af;font-weight:600;">Live tasks dashboard →</a> (refreshes every 2h from your task list + dashboard feedback)</div></div>
+        <div class="widgets" style="display:block;padding:10px 16px;background:#ffffff;border-radius:8px;border:1px solid #e5e7eb;margin:0 0 18px 0;font-size:13px;color:#374151;line-height:1.6;">🇺🇸&nbsp;NYC&nbsp;<strong>19°C</strong> &nbsp;·&nbsp; 🇺🇸&nbsp;SF&nbsp;<strong>12°C</strong> &nbsp;·&nbsp; 🇨🇳&nbsp;Beijing&nbsp;<strong>27°C</strong> &nbsp;<span style="color:#d1d5db;">|</span>&nbsp; <span>S&P 500&nbsp;<strong>7,365.46</strong>&nbsp;<span style="color:#dc2626;font-weight:600;">▼&nbsp;-1.44%</span></span> &nbsp;·&nbsp; <span>QQQ&nbsp;<strong>713.65</strong>&nbsp;<span style="color:#dc2626;font-weight:600;">▼&nbsp;-3.29%</span></span></div>
+<div style="background:#fffdf7;border:1px solid #e7e2d3;border-left:4px solid #b08968;border-radius:8px;padding:12px 16px;margin:0 0 12px 0;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:#b08968;font-weight:700;margin-bottom:6px;">📜 Poem of the day</div><div style="font-size:14.5px;line-height:1.6;color:#1f2937;font-style:italic;">If I could ever write a lasting verse,<br>It should be laid, deare Sainte, upon thy herse.<br>But Sorrow is no muse, and doth confesse<br>That it least can what most it would expresse.<br>Yet, that I may some bounds to griefe allow,<br>I'le try if I can weepe in numbers now.<br>Ah beauteous blossom! too untimely dead!<br>Whither, ah whither is thy sweetness fled?<br>Where are the charmes that allwayes did arise<br>From the prevailing languadge [sic] of thine eyes?<br>Where is thy modest aire and lovely meen,<br>And all the wonders that in these were seen?<br><span style="color:#9ca3af;">…</span></div><div style="font-size:12px;color:#6b7280;margin-top:8px;">— <strong>In Memory of F.P.</strong>, Katherine Philips</div></div>
+<div style="background:#f7faff;border:1px solid #d8e4f0;border-left:4px solid #c0392b;border-radius:8px;padding:12px 16px;margin:0 0 12px 0;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:#c0392b;font-weight:700;margin-bottom:6px;">🀄 HSK4 word of the day</div><div style="font-size:13px;color:#1f2937;"><span style="font-size:28px;font-weight:700;vertical-align:middle;">方式</span><span style="margin-left:12px;color:#0e7490;font-weight:600;">fāngshì</span><span style="margin-left:10px;color:#4b5563;">way; manner; mode</span></div><div style="font-size:13px;color:#374151;margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;">我们需要找到更有效的<strong>方式</strong>来推动项目。(Wǒmen xūyào zhǎodào gèng yǒuxiào de fāngshì lái tuīdòng xiàngmù. — We need a more effective way to drive the project forward.)</div></div>
+        <div class="tldr"><span class="tldr-label">TL;DR</span>AI Fund Research Outline needs Katie-ready status before 9:30 1:1; agriculture article is 12 days past its Jun 12 restart commit with no draft in sight.</div>
+        <div class="ack-banner"><strong>👁 Mark today as seen.</strong> <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24">I've read this briefing &rarr;</button><span class="ack-banner-note">If you don't, items roll forward to tomorrow.</span></div>
+
+        <section class="card card-priorities"><h2>Top priorities today</h2>
+<ol>
+  <li><strong>AI Fund Research Outline &mdash; address Katie&rsquo;s Model Development comments</strong> <em>before 9:30 Katie 1:1. She flagged this as &ldquo;lagging&rdquo; (May 19 notes); walking in without a status or revised draft signals it&rsquo;s still stuck.</em><span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-keys="53742edbbe86" data-date="2026-06-24" data-kind="done" data-section="priority">✓ done</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="AI Fund Research Outline &mdash; address Katie&rsquo;s Model Development comments before 9:30 Katie 1:1. She flagged this as &ldquo;lagging&rdquo; (May 19 notes); walking in without a status or revise" data-key="53742edbbe86" data-urgency="high" data-section="priority" data-date="2026-06-24">📌 send to tasks</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-keys="53742edbbe86" data-date="2026-06-24" data-kind="ignore" data-section="priority">✕ not a priority</button></span></li>
+  <li><strong>RenPhil work test (ASAP)</strong> <em>&mdash; most urgently flagged task in the system, no calendar link. Block 60 min in the gap between Parth 1:1 and Divya interview (roughly 12:15&ndash;12:45 or post-Colin).</em><span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-keys="41a76f6c1c5c" data-date="2026-06-24" data-kind="done" data-section="priority">✓ done</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="RenPhil work test (ASAP) &mdash; most urgently flagged task in the system, no calendar link. Block 60 min in the gap between Parth 1:1 and Divya interview (roughly 12:15&ndash;12:45 or post-Colin)." data-key="41a76f6c1c5c" data-urgency="high" data-section="priority" data-date="2026-06-24">📌 send to tasks</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-keys="41a76f6c1c5c" data-date="2026-06-24" data-kind="ignore" data-section="priority">✕ not a priority</button></span></li>
+  <li><strong>Action LMEF next steps from the completed doc</strong> <em>&mdash; doc is written; execution is the gap. Identify the first 3 concrete actions and owners today, post-Divya interview.</em><span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-keys="27bb4734548c" data-date="2026-06-24" data-kind="done" data-section="priority">✓ done</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Action LMEF next steps from the completed doc &mdash; doc is written; execution is the gap. Identify the first 3 concrete actions and owners today, post-Divya interview." data-key="27bb4734548c" data-urgency="high" data-section="priority" data-date="2026-06-24">📌 send to tasks</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-keys="27bb4734548c" data-date="2026-06-24" data-kind="ignore" data-section="priority">✕ not a priority</button></span></li>
+  <li><strong>Review Mariam&rsquo;s CPO verbal + written case</strong> <em>&mdash; Kali Bell updated the CPO Hiring Plan at 8am; Mariam&rsquo;s case is 1d stale. Hiring conversation is live. See inbox.</em><span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-keys="c91646609709" data-date="2026-06-24" data-kind="done" data-section="priority">✓ done</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Review Mariam&rsquo;s CPO verbal + written case &mdash; Kali Bell updated the CPO Hiring Plan at 8am; Mariam&rsquo;s case is 1d stale. Hiring conversation is live. See inbox." data-key="c91646609709" data-urgency="high" data-section="priority" data-date="2026-06-24">📌 send to tasks</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-keys="c91646609709" data-date="2026-06-24" data-kind="ignore" data-section="priority">✕ not a priority</button></span></li>
+</ol>
+
+<h2>Gold-standard overreach &mdash; if you went all-in</h2>
+<ul>
+  <li><strong>Base:</strong> Fund Research Outline status before Katie 1:1.<br>
+  <em><strong>Overreach:</strong> Walk in with a 1-paragraph revised Bet 2 argument incorporating her specific comment &mdash; turns a status update into a &ldquo;let&rsquo;s align on the argument&rdquo; close today rather than scheduling another iteration.</em><span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Base: Fund Research Outline status before Katie 1:1. Overreach: Walk in with a 1-paragraph revised Bet 2 argument incorporating her specific comment &mdash; turns a status update into a &ldquo;let&rsq" data-key="4389dd2e099c" data-urgency="high" data-section="priority" data-date="2026-06-24">📌 send to tasks</button></span></li>
+  <li><strong>Base:</strong> Review LMEF Finance Director Interview Guide before Divya&rsquo;s 1pm.<br>
+  <em><strong>Overreach:</strong> Add a 1&ndash;4 scoring rubric (pipeline judgment / governance / finance fluency) + one &ldquo;what a strong answer looks like&rdquo; note per question &mdash; turns the post-interview debrief with Kanika/Katie into a data point rather than a gut call.</em><span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Base: Review LMEF Finance Director Interview Guide before Divya&rsquo;s 1pm. Overreach: Add a 1&ndash;4 scoring rubric (pipeline judgment / governance / finance fluency) + one &ldquo;what a strong ans" data-key="be55551ff6a0" data-urgency="high" data-section="priority" data-date="2026-06-24">📌 send to tasks</button></span></li>
+</ul>
+
+<h2>Likely to slip &mdash; flag now</h2>
+<ul>
+  <li><strong>Agriculture article</strong> &mdash; Committed to restart by Jun 12; now 12 days past that. No Drive draft signal. De-risk: 2-line status to Katie today + a new committed date.</li>
+  <li><strong>Job applications (personal)</strong> &mdash; Originally May 23, now 4+ weeks overdue. No journal progress. De-risk: move one application forward today (&lt;20 min).</li>
+  <li><strong>User guides for 2AI team members</strong> &mdash; Pending since May 29, no Drive activity. If blocked on the list, decide who gets one in today&rsquo;s Parth or Katie 1:1.</li>
+  <li><strong>Vaishnavi UChicago &lsquo;08_Dissemination&rsquo; folder invite</strong> &mdash; 19 days pending from external researcher. Yes or no takes 2 minutes.</li>
+</ul>
+
+<h2>Decisions needed from James</h2>
+<ul>
+  <li><strong>Arjun Chippa (EAII Advisors) Drive access</strong> &mdash; &lsquo;delivery_status_by_geography_vS.xlsx&rsquo; external share pending 3+ weeks. Security call: grant or deny. Linked to WhatsApp numbers inbox thread.<span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Arjun Chippa (EAII Advisors) Drive access &mdash; &lsquo;delivery_status_by_geography_vS.xlsx&rsquo; external share pending 3+ weeks. Security call: grant or deny. Linked to WhatsApp numbers inbox thr" data-key="1a28c5306153" data-urgency="medium" data-section="decision" data-date="2026-06-24">📌 send to tasks</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-keys="1a28c5306153" data-date="2026-06-24" data-kind="ignore" data-section="decision">✕ not a decision</button></span></li>
+  <li><strong>GrafikInc demo ask</strong> &mdash; Jason McGuiness, 15-min demo of open-source 2G Ag/Health toolkits. Moderate Ag relevance, low cost. Accept or decline.<span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="GrafikInc demo ask &mdash; Jason McGuiness, 15-min demo of open-source 2G Ag/Health toolkits. Moderate Ag relevance, low cost. Accept or decline." data-key="42d39344ca73" data-urgency="medium" data-section="decision" data-date="2026-06-24">📌 send to tasks</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-keys="42d39344ca73" data-date="2026-06-24" data-kind="ignore" data-section="decision">✕ not a decision</button></span></li>
+</ul>
+
+<h2>Calendar prep cues</h2>
+<ul>
+  <li><strong>9:30 Katie 1:1</strong> &mdash; Know your status on: Fund Research Outline (Bet 2 comments), Yoni 30/60/90 milestones (Katie edited yesterday), Agriculture Substack (she&rsquo;s waiting for it back).</li>
+  <li><strong>10:00 EvAc &mdash; Owning your AI work</strong> &mdash; IDinsight &times; EvAc Meeting Notes on Drive (linh.vo shared). Skim for any commitments; have your 2AI work framing ready if asked.</li>
+  <li><strong>11:30 Parth 1:1</strong> &mdash; Parth&rsquo;s 30/60/90 edited by Katie yesterday. Review updated milestones; India CoS JD and cross-sector eval access both pending (journal Jun 23).</li>
+  <li><strong>12:00 Stephanie &mdash; AI Chat</strong> &mdash; Likely AI literacy/tools. CPO AI fluency questions task (journal Jun 22) may surface; have a position ready.</li>
+  <li><strong>13:00 Divya Budihal interview &mdash; LMEF Finance/PM</strong> &mdash; LMEF Finance Director Interview Guide built yesterday. Review it before walking in.</li>
+</ul>
+</section>
+        <section class="card card-inbox"><h2>Inbox &mdash; needs you</h2>
+
+<h3>Reply / decide</h3>
+<ul>
+  <li>
+    <a href="https://mail.google.com/mail/u/0/#inbox/19edaa93aa326512">For review | CPO verbal &amp; written case</a> &mdash; Mariam Sharifi &mdash; <em>Read her case and reply with a decision or at minimum a timeline for your feedback. Kali&rsquo;s CPO Hiring Plan was updated this morning; the hiring conversation is live.</em>
+    <div style="margin-top:8px;padding:10px 14px;background:#f0f9ff;border-left:3px solid #0e7490;border-radius:4px;font-size:13px;color:#1f2937;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#0e7490;font-weight:700;margin-bottom:6px;">Draft reply</div>
+      <div>Mariam, I&rsquo;ve read through both the verbal and written case. The framing is strong overall &mdash; I have a few questions on scope and operating model that I&rsquo;d like to work through with you before giving Katie a full read. Can you find 30 min this week? I&rsquo;ll come with specific questions so we can move to a decision quickly.</div>
+    </div><span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="For review | CPO verbal &amp; written case &mdash; Mariam Sharifi &mdash; Read her case and reply with a decision or at minimum a timeline for your fe" data-key="ed82c04d322a" data-urgency="high" data-section="inbox" data-date="2026-06-24">📌 send to tasks</button></span></li>
+  <li>
+    <a href="https://mail.google.com/mail/u/0/#inbox/19ee00806adefb14">Highly confidential discussion with Arthur</a> &mdash; Katie Donley &mdash; <em>Reply to engage on whatever Katie has raised; this has been sitting 1d. If you haven&rsquo;t read it yet, open it now &mdash; &ldquo;highly confidential&rdquo; from your manager warrants a same-day response.</em><span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Highly confidential discussion with Arthur &mdash; Katie Donley &mdash; Reply to engage on whatever Katie has raised; this has been sitting 1d. If you" data-key="88ce03a6f73a" data-urgency="high" data-section="inbox" data-date="2026-06-24">📌 send to tasks</button></span></li>
+  <li>
+    <a href="https://mail.google.com/mail/u/0/#inbox/19ef6c90887ee716">Share request for &ldquo;Coefficient Brief 6/18&rdquo;</a> &mdash; Kanika Bahl (via Google Docs) &mdash; <em>Accept the share request and read the brief. Kanika has sent this twice, which suggests it&rsquo;s time-sensitive. Relevant to funder positioning.</em><span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Share request for &ldquo;Coefficient Brief 6/18&rdquo; &mdash; Kanika Bahl (via Google Docs) &mdash; Accept the share request and read the brief. Kani" data-key="947bb67624b9" data-urgency="high" data-section="inbox" data-date="2026-06-24">📌 send to tasks</button></span></li>
+  <li>
+    <a href="https://mail.google.com/mail/u/0/#inbox/19ef58f6975877f7">Re: WhatsApp numbers</a> &mdash; Arjun Chippa (EAII Advisors) &mdash; <em>Linked to the pending Drive access decision (delivery_status_by_geography). Reply with your decision: grant or deny the share, then respond to the WhatsApp numbers question together.</em><span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Re: WhatsApp numbers &mdash; Arjun Chippa (EAII Advisors) &mdash; Linked to the pending Drive access decision (delivery_status_by_geography). Reply wi" data-key="4caf86f38e81" data-urgency="high" data-section="inbox" data-date="2026-06-24">📌 send to tasks</button></span></li>
+</ul>
+
+<h3>Likely to slip through</h3>
+<ul>
+  <li><a href="https://mail.google.com/mail/u/0/#inbox/19ee137f8f2b0e7d">Telangana update</a> &mdash; Kanika Bahl, 4d ago &mdash; Status on the Telangana pilot; needs an acknowledgment or action reply.<span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Telangana update &mdash; Kanika Bahl, 4d ago &mdash; Status on the Telangana pilot; needs an acknowledgment or action reply." data-key="e17ce5c07e99" data-urgency="high" data-section="inbox" data-date="2026-06-24">📌 send to tasks</button></span></li>
+  <li><a href="https://mail.google.com/mail/u/0/#inbox/19edc462e74ceb94">recruitment push</a> &mdash; Kanika Bahl, 5d ago &mdash; Likely about the CPO/senior hiring push; read and reply with your current thinking or confirm you&rsquo;ve seen it.<span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="recruitment push &mdash; Kanika Bahl, 5d ago &mdash; Likely about the CPO/senior hiring push; read and reply with your current thinking or confirm you" data-key="4c83c2abc0e8" data-urgency="high" data-section="inbox" data-date="2026-06-24">📌 send to tasks</button></span></li>
+  <li><a href="https://mail.google.com/mail/u/0/#inbox/19d9c118a8d70c18">Fwd: Connecting James and Aashna</a> &mdash; Aashna Shaparia, 5d ago &mdash; Intro request; reply to accept the connection or politely pass.<span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="Fwd: Connecting James and Aashna &mdash; Aashna Shaparia, 5d ago &mdash; Intro request; reply to accept the connection or politely pass." data-key="56ab4b31d7df" data-urgency="high" data-section="inbox" data-date="2026-06-24">📌 send to tasks</button></span></li>
+  <li><a href="https://mail.google.com/mail/u/0/#inbox/19eae69a17d5a428">James&lt;&gt;Unnati</a> &mdash; Unnati Bose (UChicago MBA 2026), 5d ago &mdash; Likely outreach/connection; reply or archive.<span class="action-widgets"><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-task_proposal="James&lt;&gt;Unnati &mdash; Unnati Bose (UChicago MBA 2026), 5d ago &mdash; Likely outreach/connection; reply or archive." data-key="b809a575cf90" data-urgency="high" data-section="inbox" data-date="2026-06-24">📌 send to tasks</button></span></li>
+</ul>
+</section>
+        <section class="card card-driveaudit">
+<p style="font-size:13px;"><a href="https://james-from-2ai.github.io/daily-briefing-automation/2026-06-24-drive-log-5408490e4e11.html">&#8594; Full Drive change log &mdash; last 14 days, every editor, every file &#8594;</a></p>
+</section>
+        <section class="card card-ideas"><h2>Implementation ideas &mdash; what 2AI could ship this week</h2>
+
+<ul><li>
+  <strong>EVAH Pathway B concept note &mdash; 2AI as CDST evaluator in Kenya or Nigeria</strong> &mdash; The $60M EVAH RFP (J-PAL-run, Gates/Wellcome/Novo Nordisk) is live now; Pathway B offers up to $3M for rigorous impact evaluations of AI clinical decision support tools in Sub-Saharan Africa. 2AI has the methods and partner relationships (Penda Health / IDinsight / CHW programmes) to credibly apply. Artifact: a 2-page concept note positioning 2AI as the evaluation lead, naming the CDST and implementation partner, and describing the counterfactual design. Audience: Wellcome/Gates program officers or J-PAL submission portal. Next step: open the J-PAL EVAH page, confirm the deadline, and spend 30 min drafting a 150-word pitch to James to sanity-check before writing the full concept note. <em>Effort: 3&ndash;5 days for concept note; initial scoping in &lt;1 hour today.</em> <a href="https://www.povertyactionlab.org/initiative/evidence-ai-health-evah-rfp">J-PAL EVAH RFP</a> <div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="be4fc809e466" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="be4fc809e466" data-vote="down">👎 less like this</button></div></li></ul>
+
+<ul><li>
+  <strong>El Ni&ntilde;o anticipatory action brief &mdash; AI-linked trigger tool for East Africa smallholders</strong> &mdash; JRC confirmed June 15 that the 2026&ndash;27 El Ni&ntilde;o is &ldquo;virtually certain&rdquo; and potentially historic. NOAA AIGFS and ICPAC are now operational. The demand for AI weather-linked anticipatory action triggers (WFP/FAO have $202M in play) is peaking right now. 2AI&rsquo;s weather workstream has no published position on this specific angle. Artifact: a 2-page brief for WFP or FAO audiences connecting NOAA AIGFS to a feasible trigger mechanism for East Africa food security decisions. Audience: WFP OSECE or FAO EMPRES. Next step: read the ICPAC May briefing (linked above) and the FAO/WFP appeal; 30 min to outline the brief and decide whether to write it or propose it to Katie as an external-facing piece. <em>Effort: 2 days to write; initial outline in 30 min.</em> <a href="https://joint-research-centre.ec.europa.eu/jrc-news-and-updates/potentially-historic-el-nino-come-analysis-shows-humanitarian-toll-2026-06-15_en">JRC June 15</a> <div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="515bd7bb438a" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="515bd7bb438a" data-vote="down">👎 less like this</button></div></li></ul>
+
+<ul><li>
+  <strong>Kenya AI Bill compliance brief for CDSS partners</strong> &mdash; Kenya&rsquo;s AI Bill (Senate stage) classifies AI in healthcare as &ldquo;high-risk&rdquo; and would require mandatory registration and annual assessments. 2AI evaluates CDSS tools in Kenya; understanding the compliance implications before the bill passes is a practical value-add for partners like Penda Health. Artifact: a 1-page compliance Q&A (&ldquo;what would this mean for your CDSS if you&rsquo;re deploying in Kenya in 2026&ndash;27?&rdquo;), with Bowmans Law and CIPESA commentary as primary sources. Audience: CDSS implementers and any funder asking about responsible deployment. Next step: read the Bowmans Law summary and draft the Q&A in 45 min. This positions 2AI as ahead of the regulatory curve without requiring original legal analysis. <em>Effort: &lt;1 day (45 min draft, light review).</em> <a href="https://bowmanslaw.com/insights/kenya-artificial-intelligence-bill-2026-proposed-too-soon/">Bowmans Law analysis</a> <div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="1c61931f9671" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="1c61931f9671" data-vote="down">👎 less like this</button></div></li></ul>
+</section>
+
+        <section class="card card-news"><h2>News briefing &mdash; deep dives</h2>
+
+<h3>AI in education (LMIC) &mdash; Chidi learning companion + UNESCO Kenya</h3>
+<p>Anthropic&rsquo;s Chidi learning companion (built on Claude) is now live across the Rwandan government school system and ALX&rsquo;s pan-African training programmes, reaching hundreds of thousands of learners. Rwanda&rsquo;s ICT/Innovation and Education ministries are the deploying ministries; ALX extends coverage across the continent. Separately, UNESCO&rsquo;s Global Skills Academy in Kenya reached 5,300+ beneficiaries via TVET institutions as of end-May 2026, with 200+ AI-trained educators guiding personalized skills pathways. This is the clearest evidence yet of government-integrated AI tutoring at scale in Sub-Saharan Africa, not just pilots. <strong>So what for 2AI:</strong> Chidi is Anthropic&rsquo;s own implementation &mdash; 2AI&rsquo;s comparative advantage is evaluation and CEA on tools like this, not build. The Rwanda deployment is a natural site for a follow-on independent evaluation; the Gates/Anthropic $200M deal makes this explicitly fundable. <a href="https://www.anthropic.com/news/rwandan-government-partnership-ai-education">Anthropic/Rwanda announcement</a> &middot; <a href="https://www.pursuit.us/news/ai-in-education-news-policies-innovations">Latest AI Education News May&ndash;June 2026</a></p>
+<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="685cd3eca7d8" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="685cd3eca7d8" data-vote="down">👎 less like this</button></div>
+<h3>AI mental health in LMICs &mdash; evidence arriving but patchy</h3>
+<p>Two new systematic reviews published in JMIR AI and JMIR Mental Health (2026) show LLM-based mental health chatbots can improve outcomes but are plagued by heterogeneous designs, minimal external validation, and inconsistent safety reporting. A meta-analysis in PMC finds promise but flags limited LMIC-specific data. The Argentina pilot RCT (8-week, ~472 messages/participant average) is one of the few randomized studies in a non-HIC context. NEJM AI published a randomized trial of a generative AI chatbot for mental health treatment; ECRI&rsquo;s 2026 hazard list continues to rate AI chatbot misuse the #1 health technology risk. <strong>So what for 2AI:</strong> The evidence base is exactly at the stage where a rigorous LMIC-contextualized evaluation could set the standard &mdash; EVAH Pathway A ($1M) was designed for this. The Brazil medRxiv CBT chatbot preprint (logged June 1) is the closest existing model. <a href="https://ai.jmir.org/2026/1/e80348">JMIR AI systematic review</a> &middot; NEJM AI RCT</p>
+<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="c4b61aee792a" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="c4b61aee792a" data-vote="down">👎 less like this</button></div>
+<h3>El Ni&ntilde;o 2026 &mdash; &ldquo;virtually certain&rdquo;, potentially historic, anticipatory action window open</h3>
+<p>The JRC (European Commission) published June 15: the 2026&ndash;27 El Ni&ntilde;o &ldquo;is virtually certain&rdquo; and could reach unprecedented intensity, with forecasts resembling 1997 and 2023 strong events. WMO puts 80%+ likelihood of El Ni&ntilde;o conditions during June&ndash;August, staying near/above 90% through November. Greater Horn of Africa faces below-normal rainfall in June&ndash;September, with Uganda, western Kenya, Ethiopia, and South Sudan most exposed. FAO + WFP have already launched a joint anticipatory action appeal for $202M to reach 8.8M people. ICPAC flagged &ldquo;super El Ni&ntilde;o&rdquo; risk for Eastern Africa in May 2026. <strong>So what for 2AI:</strong> The window for anticipatory action briefs and NOAA AIGFS integration notes is now &mdash; El Ni&ntilde;o onset accelerates demand for AI weather-linked trigger tools. The Jun 23 LMEF finance call (yesterday) likely needs this as context. <a href="https://joint-research-centre.ec.europa.eu/jrc-news-and-updates/potentially-historic-el-nino-come-analysis-shows-humanitarian-toll-2026-06-15_en">JRC June 15</a> &middot; <a href="https://icpac.medium.com/is-a-super-el-ni%C3%B1o-brewing-in-2026-what-it-could-mean-for-eastern-african-rainfall-3998223d6103">ICPAC briefing</a></p>
+<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="bc5215325acd" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="bc5215325acd" data-vote="down">👎 less like this</button></div>
+<h3>EVAH $60M &mdash; Pathway A + B RFP live, J-PAL running it</h3>
+<p>The Gates/Wellcome/Novo Nordisk Evidence for AI in Health (EVAH) initiative has its first RFP live and running through J-PAL. Two pathways: Pathway A ($1M, early-deployment evaluation &mdash; usability, workflow, safety) and Pathway B ($3M, rigorous impact evaluation of tools at deployment scale). Focus is AI-enabled clinical decision support tools (CDSTs) in primary/community health care, geographies: Sub-Saharan Africa, South Asia, Southeast Asia. This is the second investment of the $300M tri-funder research partnership launched in 2024. <strong>So what for 2AI:</strong> Pathway B is a direct 2AI fit if you can identify a CDST partner ready to evaluate (Penda Health, WHO SEARO/NAAMII, a CHW programme). The concept note idea was surfaced multiple times in the briefing log; now the RFP is open and the deadline matters. <a href="https://www.povertyactionlab.org/initiative/evidence-ai-health-evah-rfp">J-PAL EVAH RFP page</a> &middot; <a href="https://wellcome.org/insights/articles/evah-new-initiative-generate-evidence-ai-health">Wellcome EVAH overview</a></p>
+<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="5a124b3a2204" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="5a124b3a2204" data-vote="down">👎 less like this</button></div>
+<h3>Africa AI governance &mdash; Kenya AI Bill in Senate; continent moving to legislation</h3>
+<p>Kenya&rsquo;s Artificial Intelligence Bill, 2026 was introduced by Senator Karen Nyamu and proposes a three-tier governance structure: an AI Commissioner (primary regulator), an Advisory Committee, and a risk classification system (prohibited / high-risk / limited risk). High-risk AI in healthcare requires mandatory registration and annual assessments. Penalties: up to Sh5M or 2 years. The bill is at Senate stage and must also pass the National Assembly due to county government implications. CIPESA argues Kenya doesn&rsquo;t have an AI regulation gap but an accountability gap &mdash; the bill may create compliance complexity without addressing enforcement. The AI Policy Lab tracks 12+ African countries now with active AI bills or strategies. <strong>So what for 2AI:</strong> The high-risk categorisation for AI health tools is directly relevant to CDSS deployments 2AI evaluates; understanding compliance requirements is part of the funder value-add case. <a href="https://bowmanslaw.com/insights/kenya-artificial-intelligence-bill-2026-proposed-too-soon/">Bowmans Law analysis</a> &middot; CIPESA commentary</p>
+<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="e976264ca846" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="e976264ca846" data-vote="down">👎 less like this</button></div>
+<h3>Frontier AI &mdash; Anthropic RSP v3.0, Claude Fable 5 / Mythos 5, GPT-5.5</h3>
+<p>Anthropic published RSP v3.0 &mdash; a comprehensive rewrite that introduces Frontier Safety Roadmaps and Risk Reports (quantifying risk across deployed models), replaces the binary ASL system with tiered capability thresholds and required safeguards, and adds formal external governance input. Claude Fable 5 is generally available; Claude Mythos 5 is in limited availability and is being used in Project Glasswing (now 150+ orgs in 15 countries) to identify/fix software vulnerabilities &mdash; still restricted from general access. OpenAI released GPT-5.5 with major agentic coding and computer-use gains; API not yet available. Anthropic filed a confidential IPO S-1 following a $65B Series H valuing the company at $965B. <strong>So what for 2AI:</strong> RSP v3.0 and the Glasswing expansion define the frontier risk posture; CDSS and health tool evaluations need to reference these standards when describing safe deployment. The IPO filing reshapes the partnership/funding calculus with Anthropic. <a href="https://www.anthropic.com/news/responsible-scaling-policy-v3">Anthropic RSP v3.0</a> &middot; <a href="https://llm-stats.com/llm-updates">AI June 2026 release tracker</a></p>
+
+<p style="font-size:13px;"><a href="https://james-from-2ai.github.io/daily-briefing-automation/2026-06-24-news-full-beb9cf96aecb.html">&#8594; Full news sweep &mdash; more topics + sources &#8594;</a></p>
+<div class="thumbs" style="margin-top:10px;font-size:11.5px;color:#6b7280;">Tune tomorrow: <button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="9bc764b5a558" data-vote="up">👍 more like this</button><button type="button" style="background:none;border:none;padding:0;font:inherit;color:#0e7490;cursor:pointer;border-bottom:1px solid rgba(14,116,144,0.35);" data-action="webhook" data-date="2026-06-24" data-key="9bc764b5a558" data-vote="down">👎 less like this</button></div>
+</section>
+        <section class="card card-sourcestoday"><h2>Sources spotted today &mdash; worth tracking?</h2>
+
+<div style="border-left:3px solid #1a5fb4;padding:6px 12px;margin:14px 0;">
+<strong>J-PAL Poverty Action Lab</strong> (povertyactionlab.org)<br>
+<em>Why it&rsquo;s high-signal:</em> J-PAL is administering the EVAH 0M RFP and publishes rigorous evidence on AI health/education/ag tools in LMICs. Appeared twice in today&rsquo;s briefing citations.<br>
+<em>What it would add:</em> Primary source for funded evaluation results and open RFP deadlines &mdash; coverage 2AI currently gets second-hand.<br>
+&#10003; add to watchlist &nbsp;
+&#10007; skip
+</div>
+
+<div style="border-left:3px solid #1a5fb4;padding:6px 12px;margin:14px 0;">
+<strong>CIPESA</strong> (cipesa.org) &mdash; ICT Policy for East and Southern Africa<br>
+<em>Why it&rsquo;s high-signal:</em> Published substantive Kenya AI bill commentary (accountability gap framing) and tracks digital rights + AI governance across 30+ African countries. Original analysis, not aggregation.<br>
+<em>What it would add:</em> African AI policy and digital governance coverage 2AI currently misses between major AU announcements.<br>
+&#10003; add to watchlist &nbsp;
+&#10007; skip
+</div>
+</section>
+
+
+        <section class="card card-trends"><h2>Trends + opportunity spaces &mdash; last 60 days</h2>
+<p><em>Pattern-recognition across state items from Apr&ndash;Jun 2026 (342 items: news, funder, whitespace, evidence, ideas). Validated against this week&rsquo;s web signals.</em></p>
+
+<h3>Emerging trends (3+ datapoints converging)</h3>
+<ul>
+  <li><strong>Health diagnostics AI evidence is landing &mdash; faster than the field expected.</strong> Three datapoints: (1) Nature Health RCT on LLM diagnostic assistance for physicians in Pakistan; (2) Lancet Global Health prospective study on cervical cancer/TB AI diagnostics across 5 African countries; (3) npj Digital Medicine finding that only 2.4% of 4,667 AI medical studies are RCTs. Together: the RCT evidence is starting to arrive, but it&rsquo;s thin, concentrated in specific geographies, and the field knows it. This is the moment EVAH was designed for &mdash; and it&rsquo;s arriving faster than the funding originally assumed.</li>
+  <li><strong>On-device AI crossing the &ldquo;last-mile deployable&rdquo; threshold.</strong> Five datapoints from May&ndash;June: Gemma 3n, MedGemma 1.5, Gemma 4 E2B QAT (under 1GB RAM, 72% VRAM reduction), edge-lm library (1.44GB Gemma 4), Phi-4-mini. The size/performance frontier has moved from &ldquo;interesting research&rdquo; to &ldquo;a CHW with a basic Android phone can run this.&rdquo; No 2AI briefing item has yet produced a published position paper on what this means for the portfolio.</li>
+  <li><strong>Anticipatory action is moving from concept to operations.</strong> Four datapoints: NOAA AIGFS deployed operationally; WMO El Ni&ntilde;o confirmation (80%+); FAO/WFP $202M joint appeal; JRC &ldquo;virtually certain&rdquo; historic El Ni&ntilde;o call. The field is past the point of asking &ldquo;can AI weather tools help?&rdquo; &mdash; it&rsquo;s now asking &ldquo;what decision-support systems exist right now?&rdquo; This is 2AI&rsquo;s weather workstream&rsquo;s most active window.</li>
+  <li><strong>African language AI consolidating around a sovereign stack.</strong> Six models/programmes across the window: Masakhane LINGUA Africa, UCT MzansiLM, Sarvam 30B/105B (India), Bhashini 600Cr inferences, AI4Bharat, AfroLLM. The fragmentation of 2024 is consolidating into a few credible anchors per region. The gap: no credible 2AI document maps this landscape or assesses which models are actually CHW-deployment-ready.</li>
+</ul>
+
+<h3>Opportunity spaces for 2AI</h3>
+<ul>
+  <li><strong>EVAH Pathway B &mdash; evaluation lead for a CDST in East Africa.</strong> Has appeared in the briefing as an idea at least 8 times since June 1. It&rsquo;s not in the program corpus as a live concept note or proposal. The window is open now; it closes when the RFP deadline passes. This is the single highest-leverage near-term opportunity the 60-day log shows.</li>
+  <li><strong>Gates/Anthropic $200M implementation partner position.</strong> The $200M deal was the dominant story for two consecutive weeks (May 24, June 16&ndash;17) and has appeared in ideas multiple times as &ldquo;position 2AI as the Gates-Anthropic implementation partner.&rdquo; No Drive document in the program corpus is titled as a positioning brief. The opportunity is real but the window is compressing as other orgs react to the same signal.</li>
+  <li><strong>El Ni&ntilde;o + NOAA AIGFS anticipatory action toolkit.</strong> El Ni&ntilde;o confirmed, FAO/WFP appeal live, NOAA tools operational. The briefing has proposed a NOAA AIGFS anticipatory action note three times. No published output exists. The next three months are the deployment demand window.</li>
+</ul>
+
+<h3>Likely underreported / under-watched</h3>
+<ul>
+  <li><strong>AI hallucination as the #1 clinical risk (ECRI 2026).</strong> Surfaced once (June 1) and not revisited. ECRI naming AI chatbot misuse the top health technology hazard in 2026 is a reputational and evaluation-design risk for every CDSS tool 2AI is connected to. Partners need a house view on this.</li>
+  <li><strong>Agentic AI labor displacement in LMICs.</strong> One briefing item (June 11): a new paper modeling agentic AI occupational displacement across regions. The AWS data point &mdash; 92% AI usage in development sector, 7% measurable impact &mdash; also appeared once. Both are leading signals for 2AI&rsquo;s broader economic-impact frame and are underweighted in the portfolio discussion.</li>
+  <li><strong>South Africa AI policy collapse.</strong> The Draft National AI Policy was gazetted and then withdrawn after a hallucinated-citations scandal (June 6). Appeared once and wasn&rsquo;t followed up. This is a governance cautionary tale directly relevant to any AI policy advisory work 2AI might do in the region.</li>
+</ul>
+
+<h3>Pattern shifts since last month</h3>
+<ul>
+  <li><strong>Africa is moving from AI strategy to legislation.</strong> Kenya tabled an AI Bill; 12+ African countries now have active bills or strategies (AI Policy Lab data). A month ago the story was &ldquo;strategies being written.&rdquo; Now it&rsquo;s &ldquo;bills being tabled.&rdquo; The compliance implications for CDSS deployments arrived faster than expected.</li>
+  <li><strong>Funding is concentrating, not spreading.</strong> May&ndash;June saw three mega-deals dominate the briefing ($200M Gates/Anthropic, $60M EVAH, $250M OpenAI Foundation Economic Futures, $130M OpenAI resilience). Smaller RFPs (e.g. LINGUA Africa up to $250K) still exist but are getting less signal. The implication: 2AI needs to position for the large pools, not just the agile smaller grants.</li>
+  <li><strong>The &ldquo;will AI work in LMICs?&rdquo; question is giving way to &ldquo;under what conditions?&rdquo;</strong> Six weeks ago the briefing was surfacing deployment announcements; now it&rsquo;s surfacing RCT results and systematic reviews. EVAH and the npj finding (2.4% of studies are RCTs) signal the field has internalized that deployment without evidence is the risk. 2AI&rsquo;s evaluation-first posture is ahead of the curve &mdash; but only if it publishes.</li>
+</ul>
+</section>
+
+
+        <div class="feedback-footer"><strong>👋 Was this useful?</strong> <a href="https://docs.google.com/forms/d/e/1FAIpQLSeFEcK8KeQRoW1qM7JdWv_D3VMiNVlVQd0PejZ46RQvs8jFYA/viewform?usp=pp_url&entry.699836171=2026-06-24">Rate today's briefing &rarr;</a><div class="feedback-meta">60 seconds — your ratings train tomorrow's draft. The 👍/👎 next to each item also helps.</div></div>
+        <div id="toast" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#15803d;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-family:-apple-system,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,0.18);opacity:0;transition:opacity 0.25s;pointer-events:none;z-index:9999;"></div>
+<script>
+const WEBHOOK = "https://script.google.com/macros/s/AKfycbzxmy0UYGBMfvSqYGH05rOuER0hVhCFMeYfYuIAT3K558yF7drzULAvaen2i5W3coeNcg/exec";
+const TODAY = "2026-06-24";
+function toast(msg, isError) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.background = isError ? "#dc2626" : "#15803d";
+  t.style.opacity = "1";
+  clearTimeout(window._toast_t);
+  window._toast_t = setTimeout(() => t.style.opacity = "0", 1800);
+}
+function fireWebhook(params, label) {
+  const q = new URLSearchParams(params).toString();
+  fetch(WEBHOOK + "?" + q, {method: "GET", mode: "no-cors"})
+    .catch(e => toast("Network error", true));
+  toast(label || "✓ saved");
+}
+// Attach handlers to the converted webhook buttons.
+document.querySelectorAll("[data-action=\"webhook\"]").forEach(btn => {
+  btn.addEventListener("click", e => {
+    e.preventDefault();
+    const params = {};
+    for (const a of btn.attributes) {
+      if (a.name.startsWith("data-") && a.name !== "data-action") {
+        params[a.name.slice(5)] = a.value;
+      }
+    }
+    let label = "✓ saved";
+    // Ignore: writes mark-done AND fires a 👎 vote so future
+    // synth biases against re-surfacing the same item.
+    if (params.kind === "ignore") {
+      label = "✕ Ignored";
+      fireWebhook({vote: "down", key: params.keys, date: params.date}, null);
+    } else if (params.task_proposal) {
+      label = "📌 Sent to tasks queue";
+    } else if (params.vote === "up") label = "👍 More like this";
+    else if (params.vote === "down") label = "👎 Less like this";
+    else if (params.keys) label = "✓ marked done";
+    else if (Object.keys(params).length === 1 && params.date) label = "✓ acknowledged";
+    fireWebhook(params, label);
+    // Visually dim the parent item if ignoring or marking done.
+    if (params.kind === "ignore" || params.keys) {
+      const li = btn.closest("li");
+      if (li) { li.style.opacity = "0.4"; li.style.textDecoration = "line-through"; }
+    }
+  });
+});
+// Per-item add-ons: alongside every thumbs widget OR
+// action-widgets strip, inject a 💬 comment toggle + 📌 send-
+// to-tasks button (skipping the latter if action-widgets
+// already has a "send to tasks" anchor). Each reads the key
+// + section from the nearest button's data attrs.
+document.querySelectorAll(".thumbs, .action-widgets").forEach(thumbsEl => {
+  const sample = thumbsEl.querySelector("[data-key]");
+  if (!sample) return;
+  const key = sample.dataset.key;
+  // Skip injecting a duplicate task button if already present.
+  const hasTaskAlready = thumbsEl.querySelector("[data-task_proposal]");
+  // Try to infer section from URL params; default to "topic".
+  // The data attributes only carry vote/key/date; section we
+  // tag in the email render is implicit by parent card class.
+  let section = "topic";
+  const card = thumbsEl.closest(".card");
+  if (card) {
+    const match = (card.className.match(/card-(\w+)/) || [])[1];
+    if (match) section = match;
+  }
+  // Build comment + send-to-tasks affordances
+  const wrap = document.createElement("span");
+  wrap.style.marginLeft = "8px";
+  wrap.innerHTML = (
+    '<a href="#" class="dash-comment" style="font-size:11px;'
+    + 'color:#6b7280;text-decoration:none;border-bottom:1px dotted #9ca3af;'
+    + 'margin-right:8px;">💬 comment</a>'
+    + (hasTaskAlready ? '' :
+       '<a href="#" class="dash-task" style="font-size:11px;'
+       + 'color:#6b7280;text-decoration:none;border-bottom:1px dotted #9ca3af;'
+       + '">📌 send to tasks</a>')
+  );
+  thumbsEl.appendChild(wrap);
+  // Comment toggle
+  wrap.querySelector(".dash-comment").addEventListener("click", e => {
+    e.preventDefault();
+    const existing = thumbsEl.parentElement.querySelector(".dash-comment-box");
+    if (existing) { existing.remove(); return; }
+    const box = document.createElement("div");
+    box.className = "dash-comment-box";
+    box.style.cssText = "margin-top:8px;padding:10px;background:#fffbeb;border-left:3px solid #d97706;border-radius:4px;font-size:13px;";
+    box.innerHTML = (
+      '<textarea rows="3" style="width:100%;box-sizing:border-box;'
+      + 'border:1px solid #e5e7eb;border-radius:4px;padding:6px;'
+      + 'font-family:inherit;font-size:13px;" '
+      + 'placeholder="Leave a note about this item for next time…"></textarea>'
+      + '<button type="button" class="dash-comment-submit" '
+      + 'style="margin-top:6px;background:#d97706;color:#fff;'
+      + 'border:none;padding:6px 14px;border-radius:4px;font-size:12px;'
+      + 'cursor:pointer;">Save comment</button>'
+    );
+    thumbsEl.parentElement.appendChild(box);
+    box.querySelector("textarea").focus();
+    box.querySelector(".dash-comment-submit").addEventListener("click", () => {
+      const txt = box.querySelector("textarea").value.trim();
+      if (!txt) { toast("Empty comment", true); return; }
+      fireWebhook({comment: txt, key: key, section: section, date: TODAY},
+                  "💬 Comment saved");
+      box.remove();
+    });
+  });
+  // Send to tasks (only if we injected it — already-present
+  // anchors are handled by the main webhook click listener).
+  const dashTask = wrap.querySelector(".dash-task");
+  if (dashTask) dashTask.addEventListener("click", e => {
+    e.preventDefault();
+    // Use the item's nearest heading text as title.
+    const parent = thumbsEl.parentElement;
+    const h = parent.querySelector("h3");
+    let title = "(untitled item)";
+    if (h) title = h.textContent.trim();
+    else if (parent.firstElementChild) title = parent.firstElementChild.textContent.trim().slice(0, 120);
+    // Default urgency: high for funder/inbox, medium otherwise.
+    const urgency = (section === "funder" || section === "inbox") ? "high" : "medium";
+    fireWebhook({task_proposal: title, urgency: urgency,
+                 section: section, key: key, date: TODAY},
+                "📌 Sent to tasks queue");
+  });
+});
+</script>
+
+</body></html>
