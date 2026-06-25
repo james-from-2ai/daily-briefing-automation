@@ -1,0 +1,43 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Full news sweep — 2AI</title>
+<style>
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    max-width:820px;margin:0 auto;padding:32px 22px 56px;color:#111827;
+    line-height:1.55;background:#fafaf7; }
+  .eyebrow { font-size:11px;text-transform:uppercase;letter-spacing:1.4px;
+    color:#6b7280;font-weight:700;margin-bottom:4px; }
+  h1 { font-size:26px;font-weight:800;letter-spacing:-0.4px;margin:0 0 4px; }
+  .subtitle { color:#6b7280;font-size:13px;margin-bottom:24px; }
+  h2 { font-size:18px;font-weight:700;color:#1f2937;margin:24px 0 10px; }
+  h3 { font-size:15px;font-weight:700;color:#374151;margin:18px 0 6px; }
+  p,li { font-size:14.5px; } em { color:#4b5563; }
+  a { color:#0e7490;text-decoration:none;border-bottom:1px solid rgba(14,116,144,0.35); }
+  ul { margin:8px 0;padding-left:22px; } li { margin:5px 0; }
+  .back { display:inline-block;margin-bottom:18px;font-size:13px; }
+</style></head><body>
+<div class="eyebrow">2AI Daily Briefing · THURSDAY JUNE 25</div>
+<h1>Full news sweep</h1>
+<div class="subtitle">Generated 09:23 · expanded view</div>
+<h2>News briefing — full sweep</h2>
+<p style="font-size:12.5px;color:#6b7280;">Extended sweep covering Tier 1–3 topics beyond today's main 6. Same house voice and "So what for 2AI" format.</p>
+
+<h3>On-device / offline LLMs: Gemma 4 and the edge deployment frontier</h3>
+<p>Google released <strong>Gemma 4</strong> (including the 12B dense model, June 3) — the E2B and E4B variants are explicitly designed for phones and edge devices. Gemma 3 1B at 4-bit quantization runs on ~1-2 GB RAM, making it viable on hardware that can't run Phi-3 Mini. Google's LiteRT-LM framework supports Gemma, Llama, Phi-4, and Qwen for cross-platform edge deployment, and the Google AI Edge Gallery app brings offline Gemma inference to iOS and Android with no API keys needed. Phi-4-mini is recommended for bandwidth-constrained LMIC environments. <a href="https://ai.google.dev/edge/litert-lm/overview">LiteRT-LM</a>. <a href="https://huggingface.co/blog/daya-shankar/open-source-llm-models-to-run-locally">Edge LLM guide</a>.</p>
+<p><strong>So what for 2AI:</strong> Gemma 4 E2B/E4B running on Android with no connectivity is the reference architecture for 2AI's last-mile health/ag/education deployment designs. If 2AI's deployment pilots require offline-first operation, LiteRT-LM + Gemma 4 E2B is now the recommended stack — test it on a mid-range Android device before the next LMIC field evaluation design.</p>
+
+<h3>National AI policy in Africa: DRC, Kenya, OECD governance review</h3>
+<p>Three recent developments in African AI governance: (1) The <strong>Democratic Republic of Congo</strong> launched its National Digital Plan 2026–2030 and first National AI Strategy, backed by a US$1 billion commitment, with healthcare, agriculture, and digital public services as priorities. (2) A Nairobi multistakeholder workshop (March 2026, 12 African countries) convened government representatives on agriculture AI, language models, and regulation — a concrete coordination mechanism now exists. (3) The <strong>OECD published AI Governance in Africa</strong> case studies (April 2026), finding Kenya, Rwanda, and Nigeria have all adopted strategies, but Kenya's public-sector AI governance scores poorly on the Global Responsible AI Index. <a href="https://www.africaainews.com/p/drc-launches-national-policy-kenya">DRC strategy</a>. <a href="https://www.oecd.org/en/publications/oecd-artificial-intelligence-case-studies_c517fcf5-en/ai-governance-in-africa_1ff55135-en.html">OECD report</a>.</p>
+<p><strong>So what for 2AI:</strong> The DRC strategy ($1B, agriculture + health priorities) is a new potential deployment context 2AI hasn't tracked. The OECD governance gap in Kenya — weak public sector AI leadership despite a published strategy — is exactly the accountability gap 2AI's evidence-building approach addresses. Bring both into the next country-prioritization discussion.</p>
+
+<h3>Multilingual AI: Voice AI for low-literacy LMIC users</h3>
+<p>ASHABot (arXiv:2409.10913) is a CHW-focused LLM chatbot designed for India's ASHA workers — the architecture uses voice input/output and simplified query handling for low-literacy users, with the dataset drawn from ASHA field questions. A 2026 frontline worker perception study (<em>npj Health Systems</em>) found CHWs across multiple global settings are broadly positive about AI support tools but flag trust, local language coverage, and accountability as the primary concerns. Voice AI costs in LMIC contexts: ~₹2-4/automated call vs. ₹80L/month for human agents, with <3-month ROI documented in some deployments. <a href="https://arxiv.org/pdf/2409.10913">ASHABot paper</a>. <a href="https://www.nature.com/articles/s44401-025-00034-3">CHW perception study</a>.</p>
+<p><strong>So what for 2AI:</strong> The ASHABot architecture is directly relevant to 2AI's CHW-support interventions — it provides a replicable voice-first design pattern for low-literacy CHWs. The CHW trust/accountability findings validate the need for 2AI's evidence-building approach: CHWs want to know the AI is right before they use it.</p>
+
+<h3>AI economic impact: Labor displacement in India's IT sector</h3>
+<p>Recent synthesis from VoxDev and IMF data shows India's IT services sector — 5.4M workers — is experiencing measurable job displacement pressure from AI coding tools (GitHub Copilot, Claude Code equivalents), with junior developer hiring down ~30% in 2025-2026 per sector surveys. Counterpoint: Brookings' June 2026 analysis finds AI-augmented developers in India earn 15-40% more than non-augmented peers, suggesting a skills bifurcation rather than pure displacement. The net employment effect remains contested. <a href="https://voxdev.org/">VoxDev</a>.</p>
+<p><strong>So what for 2AI:</strong> India's IT sector is 2AI's most data-rich case study for AI labor impact in an LMIC context. If 2AI is developing a position on AI and employment, this bifurcation framing (augmented vs. non-augmented worker earnings gap) is more defensible than pure displacement/creation narratives. Worth a 1-pager before the research outline is finalized.</p>
+
+</body></html>
